@@ -1,5 +1,5 @@
 """
-Estimate a single-factor dynamic factor model on the 6-indicator monthly
+Estimate a single-factor dynamic factor model on the 10-indicator monthly
 panel, following the standard two-step estimator (Doz, Giannone & Reichlin,
 2011, "A two-step estimator for large approximate dynamic factor models
 based on Kalman filtering", J. Econometrics):
@@ -25,7 +25,8 @@ import pandas as pd
 panel = pd.read_csv("panel_monthly.csv", index_col=0, parse_dates=True)
 gdp = pd.read_csv("gdp_quarterly.csv", index_col=0, parse_dates=True).iloc[:, 0]
 
-cols = ["pmi", "trade", "ip", "oil", "fin", "ai"]
+cols = ["pmi", "trade", "ip", "oil", "fin", "ai", "copper", "yield_curve", "usd", "credit"]
+cols = [c for c in cols if c in panel.columns]
 panel = panel.dropna(subset=cols)
 X = panel[cols].values
 T, N = X.shape

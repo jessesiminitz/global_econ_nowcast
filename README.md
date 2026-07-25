@@ -20,6 +20,10 @@ python3 03_export.py
 | `trade`, `ip` | CPB World Trade Monitor, live "latest" release | scrapes the current month's Excel automatically |
 | `pmi` | OECD Composite Leading Indicator | **substitute for the real PMI — see caveat below** |
 | `ai` | Yahoo Finance `^SOX` (semiconductor index), via `yfinance` | optional; skipped gracefully if not installed |
+| `copper` | FRED `PCOPPUSDM` (IMF global copper price) | "Dr. Copper" — global industrial/China demand proxy; YoY % change |
+| `yield_curve` | FRED `T10Y2Y` (10y-2y Treasury spread) | classic leading recession indicator; dropped from the panel (with a warning) if FRED is unreachable — no clean fallback |
+| `usd` | FRED `DTWEXBGS` (broad trade-weighted USD index) | sign-flipped YoY so + = dollar easing (typically supportive of global growth) |
+| `credit` | FRED `BAMLH0A0HYM2` (ICE BofA US HY OAS) | sign-flipped so + = spreads tightening (easy credit); dropped from the panel (with a warning) if FRED is unreachable |
 | GDP target | World Bank `NY.GDP.MKTP.KD.ZG` (annual), interpolated to quarterly | **weakest link — see caveat below** |
 
 Two honest caveats baked into the script's docstring, worth reading before
@@ -59,8 +63,10 @@ dependency.
 history (see the caveat at the top of that file) rather than pulling real
 vintages — it has no live network access. `02_estimate_dfm.py` and
 `03_export.py` are identical either way; they just expect
-`panel_monthly.csv` with columns `pmi, trade, ip, oil, fin, ai` and a
-`gdp_quarterly.csv` target.
+`panel_monthly.csv` with a `gdp_quarterly.csv` target and any subset of the
+columns `pmi, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit`
+(both scripts auto-detect which of these are actually present, so the
+pipeline still runs on an older 6-column panel).
 
 ## Files
 

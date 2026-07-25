@@ -22,7 +22,8 @@ print("saved validation_fit.png")
 # ---- JSON export (last 48 quarters) for the front-end chart ----
 tail = c.tail(48).copy()
 tail.index = tail.index.strftime("%Y-%m")
-cols_order = ["pmi", "trade", "ip", "oil", "fin", "ai"]
+cols_order = ["pmi", "trade", "ip", "oil", "fin", "ai", "copper", "yield_curve", "usd", "credit"]
+cols_order = [col for col in cols_order if col in tail.columns]
 records = []
 for idx, row in tail.iterrows():
     records.append({

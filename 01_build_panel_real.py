@@ -76,6 +76,98 @@ def fetch_financial_conditions() -> pd.Series:
     return score.rename("fin")
 
 
+def fetch_copper() -> pd.Series:
+    """
+    "Dr. Copper" — IMF Global Price of Copper (FRED PCOPPUSDM, USD/metric ton,
+    monthly), converted to year-over-year % change. Widely used as a leading
+    proxy for global industrial demand (China construction/manufacturing in
+    particular). Falls back to CME copper futures (HG=F) via yfinance if
+    FRED is unreachable.
+    """
+    try:
+        level = fetch_fred_series("PCOPPUSDM")
+        monthly = level.resample("MS").mean()
+    except Exception as e:
+        print(f"  [fallback] FRED copper download failed ({e}), pulling HG=F via yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("HG=F", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["HG=F"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
+        monthly = px.resample("MS").mean()
+
+    yoy = monthly.pct_change(12) * 100
+    return yoy.rename("copper")
+
+
+def fetch_yield_curve() -> pd.Series:
+    """
+    10y-2y Treasury term spread (FRED T10Y2Y), daily, resampled to monthly
+    mean. A classic leading recession indicator (inversions have preceded
+    every US recession since the 1970s with a ~12-18 month lead). No clean
+    non-FRED fallback exists for the 2y leg, so this indicator is skipped
+    (with a warning) rather than substituted if FRED is unreachable.
+    """
+    try:
+        spread = fetch_fred_series("T10Y2Y")
+    except Exception as e:
+        print(f"  [skip] FRED yield curve download failed ({e}), dropping 'yield_curve' from the panel.")
+        return None
+
+    monthly = spread.resample("MS").mean()
+    return monthly.rename("yield_curve")
+
+
+def fetch_dollar_index() -> pd.Series:
+    """
+    Fed broad trade-weighted USD index (FRED DTWEXBGS), year-over-year %
+    change, sign-flipped so + = dollar EASING. A strengthening dollar
+    tightens financial conditions for EM/dollar-debt borrowers and is
+    historically a headwind for global growth, hence the flip (consistent
+    with the sign convention used for `fin`). Falls back to ICE USD index
+    futures (DX-Y.NYB) via yfinance if FRED is unreachable.
+    """
+    try:
+        level = fetch_fred_series("DTWEXBGS")
+        monthly = level.resample("MS").mean()
+    except Exception as e:
+        print(f"  [fallback] FRED dollar index download failed ({e}), pulling DX-Y.NYB via yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("DX-Y.NYB", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["DX-Y.NYB"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
+        monthly = px.resample("MS").mean()
+
+    yoy = monthly.pct_change(12) * 100
+    return (-yoy).rename("usd")
+
+
+def fetch_credit_spread() -> pd.Series:
+    """
+    ICE BofA US High Yield Index option-adjusted spread (FRED
+    BAMLH0A0HYM2), daily, resampled to monthly mean and sign-flipped so
+    + = spreads TIGHTENING (easy credit) — same convention as `fin`. Captures
+    corporate credit-market stress more directly than NFCI. No clean
+    non-FRED fallback exists, so this indicator is skipped (with a warning)
+    if FRED is unreachable.
+    """
+    try:
+        spread = fetch_fred_series("BAMLH0A0HYM2")
+    except Exception as e:
+        print(f"  [skip] FRED credit spread download failed ({e}), dropping 'credit' from the panel.")
+        return None
+
+    monthly = spread.resample("MS").mean()
+    return (-monthly).rename("credit")
+
+
 # =========================================================================
 # 2. CPB World Trade Monitor — world trade volume + industrial production
 # =========================================================================
@@ -261,11 +353,24 @@ def main():
     print("Fetching AI/tech capex proxy (Yahoo Finance: ^SOX)...")
     ai = fetch_ai_tech_proxy()
 
+    print("Fetching copper price (Dr. Copper)...")
+    copper = fetch_copper()
+
+    print("Fetching 10y-2y yield curve slope...")
+    yield_curve = fetch_yield_curve()
+
+    print("Fetching broad USD index...")
+    usd = fetch_dollar_index()
+
+    print("Fetching high-yield credit spread...")
+    credit = fetch_credit_spread()
+
     print("Fetching World Bank annual world GDP growth...")
     gdp_annual = fetch_world_bank_annual_gdp_growth()
     gdp_quarterly = get_quarterly_gdp_target(gdp_annual)
 
-    panel = pd.concat([pmi_proxy, trade, ip, oil, fin, ai], axis=1)
+    series = [pmi_proxy, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit]
+    panel = pd.concat([s for s in series if s is not None], axis=1)
     panel = panel.loc[START_DATE:].resample("MS").mean()
     panel = panel.rename(columns={"pmi_proxy_oecd_cli": "pmi"})
     panel = panel.interpolate(limit=2)

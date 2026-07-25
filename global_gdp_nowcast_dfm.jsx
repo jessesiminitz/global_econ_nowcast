@@ -7,25 +7,35 @@ import {
 /* =================================================================
    GLOBAL GDP NOWCAST — single-factor Dynamic Factor Model
    Estimated with the two-step Doz–Giannone–Reichlin procedure:
-     Step 1: PCA on 6 standardized monthly indicators -> static factor
-             (exact linear combination, so the decomposition below is
-             additive by construction, not an approximation).
+     Step 1: PCA on the standardized monthly indicator panel -> static
+             factor (exact linear combination, so the decomposition
+             below is additive by construction, not an approximation).
      Step 2: AR(1) factor dynamics fit + Kalman filter/smoother.
    Bridge regression: quarterly GDP growth ~ alpha + beta * factor.
-   Model fit stats: 54.4% of common variance in 1st factor,
-   bridge R² = 0.93, on a panel built to match documented global
-   business-cycle history 2005-2026 (GFC, COVID, 2022 tightening,
-   2026 Middle East energy shock / AI capex boom). See methodology
-   panel for the important caveat about this environment having no
-   live data-vendor access.
+   The panel now supports up to 10 indicators (PMI, trade, industrial
+   production, oil, financial conditions, AI/tech capex, copper, the
+   10y-2y yield curve slope, the broad USD index, and high-yield credit
+   spreads) — see 01_build_panel_real.py. This component renders
+   whichever driver keys are present in the loaded export, so it works
+   unchanged whether you feed it a 6- or 10-indicator run.
+   Model fit stats below (54.4% var. explained, bridge R² = 0.93) are
+   from the bundled 6-indicator example run. See methodology panel for
+   the important caveat about this environment having no live
+   data-vendor access.
 ================================================================= */
 
 // ---- output of 02_estimate_dfm.py / 03_export.py, last 48 quarters ----
-// This is the bundled example run. Use "Load decomposition_export.json"
-// in the header to swap in your own freshly-generated export.
+// This is the bundled example run (6-indicator panel, predates the
+// copper/yield-curve/USD/credit additions below). Use "Load
+// decomposition_export.json" in the header to swap in your own
+// freshly-generated 10-indicator export.
 const DEFAULT_DECOMP_DATA = [{"q":"2014-10","pmi":0.299,"trade":0.321,"ip":0.015,"oil":-0.612,"fin":0.014,"ai":-0.242,"trend":2.922,"fitted":2.718,"actual":3.831,"residual":1.113},{"q":"2015-01","pmi":0.043,"trade":0.06,"ip":0.052,"oil":-0.8,"fin":0.235,"ai":-0.264,"trend":2.922,"fitted":2.246,"actual":3.769,"residual":1.522},{"q":"2015-04","pmi":-0.231,"trade":-0.309,"ip":-0.219,"oil":-0.8,"fin":0.146,"ai":-0.267,"trend":2.922,"fitted":1.242,"actual":2.114,"residual":0.872},{"q":"2015-07","pmi":-0.224,"trade":-0.56,"ip":-0.069,"oil":-0.861,"fin":0.025,"ai":-0.23,"trend":2.922,"fitted":1.002,"actual":1.564,"residual":0.561},{"q":"2015-10","pmi":-0.261,"trade":-0.194,"ip":0.152,"oil":-0.863,"fin":0.096,"ai":-0.145,"trend":2.922,"fitted":1.706,"actual":2.009,"residual":0.304},{"q":"2016-01","pmi":-0.316,"trade":-0.239,"ip":-0.045,"oil":-0.958,"fin":0.001,"ai":-0.236,"trend":2.922,"fitted":1.13,"actual":1.893,"residual":0.763},{"q":"2016-04","pmi":-0.188,"trade":-0.176,"ip":-0.035,"oil":-0.631,"fin":0.031,"ai":-0.323,"trend":2.922,"fitted":1.599,"actual":2.914,"residual":1.315},{"q":"2016-07","pmi":-0.008,"trade":-0.171,"ip":0.133,"oil":-0.083,"fin":0.064,"ai":-0.293,"trend":2.922,"fitted":2.565,"actual":2.676,"residual":0.111},{"q":"2016-10","pmi":0.089,"trade":0.036,"ip":0.274,"oil":0.291,"fin":-0.028,"ai":-0.292,"trend":2.922,"fitted":3.291,"actual":3.875,"residual":0.584},{"q":"2017-01","pmi":0.252,"trade":0.127,"ip":0.056,"oil":0.337,"fin":-0.09,"ai":-0.309,"trend":2.922,"fitted":3.296,"actual":3.902,"residual":0.606},{"q":"2017-04","pmi":0.523,"trade":0.766,"ip":0.617,"oil":0.362,"fin":-0.311,"ai":-0.27,"trend":2.922,"fitted":4.608,"actual":5.125,"residual":0.517},{"q":"2017-07","pmi":0.628,"trade":1.035,"ip":0.726,"oil":0.359,"fin":-0.423,"ai":-0.198,"trend":2.922,"fitted":5.049,"actual":5.309,"residual":0.26},{"q":"2017-10","pmi":0.706,"trade":0.649,"ip":0.543,"oil":0.324,"fin":-0.391,"ai":-0.246,"trend":2.922,"fitted":4.507,"actual":5.101,"residual":0.594},{"q":"2018-01","pmi":0.438,"trade":0.311,"ip":0.402,"oil":0.308,"fin":-0.477,"ai":-0.186,"trend":2.922,"fitted":3.718,"actual":4.596,"residual":0.878},{"q":"2018-04","pmi":0.645,"trade":-0.056,"ip":0.441,"oil":0.359,"fin":-0.296,"ai":-0.112,"trend":2.922,"fitted":3.902,"actual":4.688,"residual":0.785},{"q":"2018-07","pmi":0.34,"trade":0.14,"ip":0.228,"oil":0.374,"fin":-0.353,"ai":-0.034,"trend":2.922,"fitted":3.616,"actual":4.538,"residual":0.922},{"q":"2018-10","pmi":-0.013,"trade":0.041,"ip":0.197,"oil":0.295,"fin":-0.485,"ai":0.008,"trend":2.922,"fitted":2.963,"actual":2.741,"residual":-0.222},{"q":"2019-01","pmi":-0.023,"trade":-0.389,"ip":0.04,"oil":0.03,"fin":-0.281,"ai":-0.057,"trend":2.922,"fitted":2.242,"actual":3.294,"residual":1.052},{"q":"2019-04","pmi":-0.216,"trade":-0.218,"ip":-0.245,"oil":-0.29,"fin":-0.133,"ai":-0.121,"trend":2.922,"fitted":1.698,"actual":2.219,"residual":0.521},{"q":"2019-07","pmi":-0.302,"trade":-0.359,"ip":-0.294,"oil":-0.513,"fin":0.064,"ai":-0.083,"trend":2.922,"fitted":1.435,"actual":2.358,"residual":0.922},{"q":"2019-10","pmi":-0.164,"trade":-0.542,"ip":0.004,"oil":-0.688,"fin":0.075,"ai":-0.157,"trend":2.922,"fitted":1.448,"actual":2.613,"residual":1.164},{"q":"2020-01","pmi":-1.074,"trade":-0.597,"ip":-0.633,"oil":-0.942,"fin":-0.487,"ai":-0.161,"trend":2.922,"fitted":-0.972,"actual":-0.96,"residual":0.012},{"q":"2020-04","pmi":-4.093,"trade":-3.412,"ip":-3.429,"oil":-0.982,"fin":-0.207,"ai":-0.116,"trend":2.922,"fitted":-9.317,"actual":-10.821,"residual":-1.504},{"q":"2020-07","pmi":-0.468,"trade":-0.339,"ip":-0.086,"oil":-0.881,"fin":0.541,"ai":-0.069,"trend":2.922,"fitted":1.619,"actual":0.97,"residual":-0.649},{"q":"2020-10","pmi":0.665,"trade":0.826,"ip":0.468,"oil":-0.578,"fin":0.513,"ai":0.118,"trend":2.922,"fitted":4.934,"actual":4.807,"residual":-0.127},{"q":"2021-01","pmi":1.223,"trade":1.545,"ip":1.306,"oil":-0.108,"fin":0.593,"ai":0.344,"trend":2.922,"fitted":7.825,"actual":6.817,"residual":-1.008},{"q":"2021-04","pmi":1.417,"trade":1.083,"ip":1.518,"oil":0.438,"fin":0.49,"ai":0.401,"trend":2.922,"fitted":8.269,"actual":7.889,"residual":-0.38},{"q":"2021-07","pmi":1.135,"trade":1.062,"ip":0.994,"oil":0.533,"fin":0.642,"ai":0.421,"trend":2.922,"fitted":7.707,"actual":7.577,"residual":-0.13},{"q":"2021-10","pmi":0.598,"trade":0.222,"ip":0.561,"oil":0.519,"fin":0.463,"ai":0.277,"trend":2.922,"fitted":5.562,"actual":5.241,"residual":-0.32},{"q":"2022-01","pmi":0.42,"trade":0.18,"ip":0.357,"oil":0.432,"fin":0.109,"ai":0.019,"trend":2.922,"fitted":4.439,"actual":5.095,"residual":0.656},{"q":"2022-04","pmi":-0.115,"trade":-0.36,"ip":-0.422,"oil":0.447,"fin":-0.23,"ai":-0.354,"trend":2.922,"fitted":1.888,"actual":2.279,"residual":0.391},{"q":"2022-07","pmi":-0.502,"trade":0.0,"ip":-0.27,"oil":0.347,"fin":-0.596,"ai":-0.384,"trend":2.922,"fitted":1.516,"actual":1.497,"residual":-0.019},{"q":"2022-10","pmi":-0.509,"trade":-0.991,"ip":-0.276,"oil":0.084,"fin":-0.508,"ai":-0.36,"trend":2.922,"fitted":0.361,"actual":1.433,"residual":1.072},{"q":"2023-01","pmi":-0.199,"trade":-0.628,"ip":0.034,"oil":-0.316,"fin":-0.399,"ai":-0.324,"trend":2.922,"fitted":1.09,"actual":2.899,"residual":1.809},{"q":"2023-04","pmi":-0.176,"trade":-0.447,"ip":-0.114,"oil":-0.64,"fin":-0.243,"ai":-0.258,"trend":2.922,"fitted":1.043,"actual":2.27,"residual":1.227},{"q":"2023-07","pmi":-0.026,"trade":-0.231,"ip":-0.074,"oil":-0.561,"fin":-0.106,"ai":-0.123,"trend":2.922,"fitted":1.801,"actual":2.896,"residual":1.096},{"q":"2023-10","pmi":0.198,"trade":-0.342,"ip":0.101,"oil":-0.431,"fin":-0.05,"ai":0.073,"trend":2.922,"fitted":2.47,"actual":3.376,"residual":0.905},{"q":"2024-01","pmi":-0.048,"trade":0.287,"ip":0.23,"oil":-0.314,"fin":-0.108,"ai":0.321,"trend":2.922,"fitted":3.289,"actual":2.698,"residual":-0.591},{"q":"2024-04","pmi":0.157,"trade":0.473,"ip":0.625,"oil":-0.205,"fin":0.032,"ai":0.357,"trend":2.922,"fitted":4.361,"actual":3.478,"residual":-0.883},{"q":"2024-07","pmi":0.264,"trade":0.445,"ip":0.359,"oil":-0.204,"fin":0.184,"ai":0.469,"trend":2.922,"fitted":4.439,"actual":4.022,"residual":-0.417},{"q":"2024-10","pmi":0.306,"trade":0.162,"ip":0.342,"oil":-0.224,"fin":0.283,"ai":0.44,"trend":2.922,"fitted":4.229,"actual":3.283,"residual":-0.946},{"q":"2025-01","pmi":0.179,"trade":-0.128,"ip":-0.26,"oil":-0.182,"fin":0.265,"ai":0.412,"trend":2.922,"fitted":3.207,"actual":3.824,"residual":0.617},{"q":"2025-04","pmi":0.123,"trade":0.395,"ip":-0.034,"oil":-0.265,"fin":0.361,"ai":0.418,"trend":2.922,"fitted":3.919,"actual":3.877,"residual":-0.042},{"q":"2025-07","pmi":0.215,"trade":0.113,"ip":-0.049,"oil":-0.245,"fin":0.262,"ai":0.432,"trend":2.922,"fitted":3.649,"actual":3.211,"residual":-0.438},{"q":"2025-10","pmi":-0.43,"trade":-0.299,"ip":-0.899,"oil":-0.342,"fin":-0.042,"ai":0.451,"trend":2.922,"fitted":1.361,"actual":1.298,"residual":-0.062},{"q":"2026-01","pmi":-0.37,"trade":-0.118,"ip":-0.537,"oil":-0.117,"fin":-0.3,"ai":0.511,"trend":2.922,"fitted":1.991,"actual":2.118,"residual":0.128},{"q":"2026-04","pmi":-0.297,"trade":0.232,"ip":-0.385,"oil":0.332,"fin":-0.232,"ai":0.557,"trend":2.922,"fitted":3.129,"actual":1.847,"residual":-1.282},{"q":"2026-07","pmi":0.292,"trade":-0.026,"ip":0.236,"oil":0.378,"fin":0.283,"ai":0.595,"trend":2.922,"fitted":4.679,"actual":4.496,"residual":-0.183}];
 
-const REQUIRED_KEYS = ["q", "pmi", "trade", "ip", "oil", "fin", "ai", "trend", "fitted", "actual", "residual"];
+// Core fields every export must have. Indicator keys are NOT required here
+// on purpose — the panel can legitimately carry 6 or 10 (or any subset of
+// the known) indicators, so driver keys are resolved dynamically below from
+// whichever of them are actually present in the loaded data.
+const REQUIRED_KEYS = ["q", "trend", "fitted", "actual", "residual"];
 
 function validateDecompData(arr) {
   if (!Array.isArray(arr) || arr.length === 0) {
@@ -35,16 +45,28 @@ function validateDecompData(arr) {
   if (missing.length) {
     throw new Error(`Missing expected field(s): ${missing.join(", ")}. Is this a decomposition_export.json from 03_export.py?`);
   }
+  const hasIndicator = KNOWN_DRIVERS.some((d) => d.key in arr[0]);
+  if (!hasIndicator) {
+    throw new Error("No recognized indicator columns found (pmi, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit).");
+  }
   return arr;
 }
 
-const DRIVERS = [
+// All indicators the pipeline can produce. A given export may only carry a
+// subset (e.g. the bundled 6-indicator example predates copper/yield_curve/
+// usd/credit) — components below filter this list down to whatever keys are
+// actually present in the loaded data.
+const KNOWN_DRIVERS = [
   { key: "pmi", label: "Composite PMI", color: "#45d6c0" },
   { key: "trade", label: "Trade volumes", color: "#5b8def" },
   { key: "ip", label: "Industrial production", color: "#9b7cf0" },
   { key: "oil", label: "Oil price shock", color: "#ef7a56" },
   { key: "fin", label: "Financial conditions", color: "#e3b24e" },
   { key: "ai", label: "AI / tech capex", color: "#6bd66b" },
+  { key: "copper", label: "Copper (Dr. Copper)", color: "#c77b3c" },
+  { key: "yield_curve", label: "Yield curve (10y-2y)", color: "#7f9cf5" },
+  { key: "usd", label: "USD index (easing = +)", color: "#d65f9e" },
+  { key: "credit", label: "Credit spreads (HY OAS)", color: "#8fd6e8" },
   { key: "residual", label: "Idiosyncratic residual", color: "#4a5560" },
 ];
 
@@ -64,10 +86,11 @@ function fmtPP(v) {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null;
   const row = payload[0].payload;
+  const rowDrivers = KNOWN_DRIVERS.filter((d) => d.key in row);
   return (
     <div className="ttip">
       <div className="ttip-q">{label}</div>
-      {DRIVERS.map((d) => (
+      {rowDrivers.map((d) => (
         <div className="ttip-row" key={d.key}>
           <span><i style={{ background: d.color }} />{d.label}</span>
           <span className="mono">{fmtPP(row[d.key])}</span>
@@ -102,9 +125,21 @@ export default function GlobalGDPNowcastDFM() {
   );
 
   const latest = chartData[chartData.length - 1];
-  const drivers = useMemo(
-    () => DRIVERS.filter((d) => d.key !== "residual").map((d) => ({ ...d, pp: latest[d.key] })).sort((a, b) => b.pp - a.pp),
+  // Which indicator keys this particular export actually carries (6- or
+  // 10-indicator panel, or anything in between).
+  const activeDrivers = useMemo(
+    () => KNOWN_DRIVERS.filter((d) => d.key !== "residual" && d.key in latest),
     [latest]
+  );
+  const drivers = useMemo(
+    () => activeDrivers.map((d) => ({ ...d, pp: latest[d.key] })).sort((a, b) => b.pp - a.pp),
+    [activeDrivers, latest]
+  );
+  // Stacked-bar series: active indicators plus the residual bar (residual is
+  // always present per REQUIRED_KEYS).
+  const chartBars = useMemo(
+    () => [...activeDrivers, KNOWN_DRIVERS.find((d) => d.key === "residual")],
+    [activeDrivers]
   );
 
   function handleFile(e) {
@@ -279,7 +314,7 @@ export default function GlobalGDPNowcastDFM() {
               label={{ value: "pp, annualized", angle: -90, position: "insideLeft", fill: "#5f6d76", fontSize: 10 }} />
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            {DRIVERS.map((d) => (
+            {chartBars.map((d) => (
               <Bar key={d.key} dataKey={d.key} stackId="s" fill={d.color} isAnimationActive={false} />
             ))}
             <Line type="monotone" dataKey="actual" stroke="#ece8e0" strokeWidth={1.6} dot={false}
@@ -287,7 +322,7 @@ export default function GlobalGDPNowcastDFM() {
             <Legend
               wrapperStyle={{ fontSize: 11, fontFamily: "Inter", color: "#8fa0a8", paddingTop: 10 }}
               formatter={(v) => {
-                const d = DRIVERS.find((x) => x.key === v);
+                const d = KNOWN_DRIVERS.find((x) => x.key === v);
                 return d ? d.label : v === "actual" ? "Actual GDP growth" : v;
               }}
             />
@@ -316,16 +351,24 @@ export default function GlobalGDPNowcastDFM() {
 
       {showMethod && (
         <div className="method-body">
-          <p><b>Estimation.</b> Six monthly series (Composite PMI, world trade volume growth,
+          <p><b>Estimation.</b> Monthly series — Composite PMI, world trade volume growth,
           world industrial production growth, an oil-price shock term, a financial-conditions
-          score, and an AI/tech-capex score) are standardized and reduced to a single common
-          factor via PCA — the "static" step of the Doz–Giannone–Reichlin (2011) two-step
-          estimator. An AR(1) is fit to that factor (φ = {MODEL_STATS.phi.toFixed(2)}), and a
-          Kalman filter/smoother is run over the resulting state-space to produce a
-          dynamically-consistent monthly factor. A bridge regression of quarterly GDP growth on
-          the quarterly-averaged factor gives the growth units. Because the PCA factor is an
-          <i> exact</i> linear combination of the standardized indicators, every quarter's fitted
-          growth decomposes additively into the six bars shown — no approximation error.</p>
+          score, an AI/tech-capex score, and (as of the latest panel) copper price growth, the
+          10y-2y yield curve slope, a broad USD index, and high-yield credit spreads — are
+          standardized and reduced to a single common factor via PCA — the "static" step of the
+          Doz–Giannone–Reichlin (2011) two-step estimator. An AR(1) is fit to that factor
+          (φ = {MODEL_STATS.phi.toFixed(2)}), and a Kalman filter/smoother is run over the
+          resulting state-space to produce a dynamically-consistent monthly factor. A bridge
+          regression of quarterly GDP growth on the quarterly-averaged factor gives the growth
+          units. Because the PCA factor is an <i>exact</i> linear combination of the standardized
+          indicators, every quarter's fitted growth decomposes additively into the bars shown for
+          whichever indicators are in the loaded export — no approximation error.</p>
+
+          <p style={{ marginTop: 10 }}>The table below reflects the <b>bundled 6-indicator
+          example run</b> (loadings will shift once you load a fresh export built from the
+          10-indicator panel — rerun <code className="mono">01_build_panel_real.py</code>
+          through <code className="mono">03_export.py</code> to get real weights for
+          copper/yield_curve/usd/credit).</p>
 
           <table>
             <thead><tr><th>Indicator</th><th>Loading (w)</th><th>Reads as</th></tr></thead>
@@ -358,10 +401,12 @@ export default function GlobalGDPNowcastDFM() {
             better; a single common factor cannot.
           </div>
 
-          <p style={{ marginTop: 10 }}>To put this on real data: pull actual vintage series
-          (FRED for US components, CPB for world trade, S&P Global for PMI, OECD for the CLI)
-          via Claude Code or Cowork with internet access, replace <code className="mono">panel_monthly.csv</code>,
-          and rerun <code className="mono">02_estimate_dfm.py</code> unchanged.</p>
+          <p style={{ marginTop: 10 }}>To put this on real data: run <code className="mono">01_build_panel_real.py</code>
+          on a machine with internet access — it now also pulls copper (FRED), the 10y-2y yield
+          curve (FRED), a broad USD index (FRED), and high-yield credit spreads (FRED) alongside
+          the original six series — then rerun <code className="mono">02_estimate_dfm.py</code> and
+          <code className="mono"> 03_export.py</code> unchanged and load the fresh
+          <code className="mono"> decomposition_export.json</code> above.</p>
         </div>
       )}
 

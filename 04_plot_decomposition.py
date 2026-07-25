@@ -25,6 +25,10 @@ DRIVERS = [
     ("oil", "Oil price shock", "#ef7a56"),
     ("fin", "Financial conditions", "#e3b24e"),
     ("ai", "AI / tech capex", "#6bd66b"),
+    ("copper", "Copper (Dr. Copper)", "#c77b3c"),
+    ("yield_curve", "Yield curve (10y-2y)", "#7f9cf5"),
+    ("usd", "USD index (easing = +)", "#d65f9e"),
+    ("credit", "Credit spreads (HY OAS)", "#8fd6e8"),
     ("residual", "Idiosyncratic residual", "#9aa5ad"),
 ]
 
@@ -35,11 +39,15 @@ quarters = [d["q"] for d in data]
 n = len(quarters)
 x = np.arange(n)
 
+# Only plot driver keys actually present in this export, so a 6-indicator
+# run and a 10-indicator run both render correctly with the same script.
+active_drivers = [(key, label, color) for key, label, color in DRIVERS if key in data[0]]
+
 fig, ax = plt.subplots(figsize=(max(11, n * 0.32), 5.2), dpi=150)
 
 pos_bottom = np.zeros(n)
 neg_bottom = np.zeros(n)
-for key, label, color in DRIVERS:
+for key, label, color in active_drivers:
     vals = np.array([d[key] for d in data])
     pos = np.clip(vals, 0, None)
     neg = np.clip(vals, None, 0)

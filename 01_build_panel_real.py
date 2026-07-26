@@ -291,7 +291,107 @@ def fetch_pmi_proxy() -> pd.Series:
 
 
 # =========================================================================
-# 4. World Bank — world real GDP growth (annual)
+# 4. IMF Quarterly GDP database — world real GDP growth (quarterly)
+# =========================================================================
+def _parse_sdmx_quarter(raw) -> "pd.Timestamp | None":
+    """Parse a TIME_PERIOD value like '2024-Q1' or '2024Q1' into a quarter-start Timestamp."""
+    s = str(raw).strip().upper().replace(" ", "")
+    m = re.match(r"^(\d{4})-?Q([1-4])$", s)
+    if not m:
+        return None
+    year, q = m.groups()
+    month = (int(q) - 1) * 3 + 1
+    return pd.Timestamp(f"{year}-{month:02d}-01")
+
+
+def fetch_imf_quarterly_gdp() -> pd.Series:
+    """
+    IMF Quarterly GDP database — "World and Country Aggregates" dataflow
+    (QGDP_WCA), served via the IMF's SDMX 3.0 REST API at api.imf.org. This
+    is the IMF's own quarterly, seasonally-adjusted world real GDP growth
+    series (the "World GDP grew X% quarter-on-quarter" figure quoted in the
+    IMF's Quarterly GDP data briefs) — genuine quarterly data, rather than
+    an interpolation of an annual figure.
+
+    The exact REF_AREA/INDICATOR codes for the World aggregate and the
+    real/SA/QoQ growth indicator aren't hardcoded: the full dataflow is
+    pulled as SDMX-CSV with both codes and labels, then the area and
+    indicator columns are searched for "World" and for real/SA/QoQ growth
+    keywords. This is more robust to the IMF reordering or renaming its
+    codelists than a fixed dimension key would be.
+    """
+    url = "https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.STA/QGDP_WCA/~/*"
+    params = {"labels": "both", "c[TIME_PERIOD]": f"ge:{FETCH_START_DATE[:4]}"}
+    headers = {
+        **UA,
+        "Accept": "application/vnd.sdmx.data+csv;labels=both, text/csv;q=0.9, */*;q=0.1",
+    }
+    r = requests.get(url, params=params, headers=headers, timeout=30)
+    r.raise_for_status()
+    df = pd.read_csv(io.StringIO(r.text))
+
+    freq_cols = [c for c in df.columns if c.upper() == "FREQ"]
+    if freq_cols:
+        df = df[df[freq_cols[0]].astype(str).str.upper() == "Q"]
+
+    area_cols = [c for c in df.columns if any(k in c.upper() for k in ("AREA", "COUNTRY", "REGION"))]
+    indicator_cols = [c for c in df.columns if "INDICATOR" in c.upper()]
+    time_col = next((c for c in df.columns if "TIME_PERIOD" in c.upper()), None)
+    val_col = next((c for c in df.columns if "OBS_VALUE" in c.upper()), None)
+
+    if not area_cols or not indicator_cols or time_col is None or val_col is None:
+        raise RuntimeError("Unexpected QGDP_WCA CSV layout: missing REF_AREA/INDICATOR/TIME_PERIOD/OBS_VALUE columns.")
+
+    is_world = pd.Series(False, index=df.index)
+    for c in area_cols:
+        vals = df[c].astype(str).str.strip()
+        is_world |= vals.str.upper().eq("W00") | vals.str.lower().eq("world") | vals.str.contains("world", case=False, na=False)
+    world_df = df[is_world]
+    if world_df.empty:
+        raise RuntimeError("Could not find a 'World' REF_AREA row in QGDP_WCA.")
+
+    def indicator_score(text: str) -> int:
+        t = text.lower()
+        score = 0
+        if "real" in t:
+            score += 1
+        if "gdp" in t:
+            score += 1
+        if "growth" in t or "change" in t:
+            score += 1
+        if "seasonally adjusted" in t or re.search(r"\bsa\b", t):
+            score += 2
+        if "quarter" in t or "qoq" in t or "q-o-q" in t:
+            score += 2
+        if "annual" in t or "yoy" in t or "y-o-y" in t:
+            score -= 1
+        return score
+
+    combined_text = world_df[indicator_cols].astype(str).agg(" ".join, axis=1)
+    scores = combined_text.map(indicator_score)
+    best = scores.max()
+    if best <= 0:
+        raise RuntimeError("Could not identify a real/SA/QoQ GDP growth indicator row in QGDP_WCA.")
+    world_df = world_df[scores == best]
+
+    quarters = world_df[time_col].map(_parse_sdmx_quarter)
+    values = pd.to_numeric(world_df[val_col], errors="coerce")
+    s = pd.Series(values.values, index=quarters.values)
+    s = s[s.index.notna()].dropna().sort_index()
+    s = s[~s.index.duplicated(keep="last")]
+
+    if s.empty:
+        raise RuntimeError("QGDP_WCA query returned no usable World GDP growth observations.")
+
+    # QGDP_WCA publishes non-annualized quarter-on-quarter growth; compound
+    # to an annualized rate to match the gdp_growth_saar convention used
+    # elsewhere in this pipeline.
+    saar = ((1 + s / 100) ** 4 - 1) * 100
+    return saar.rename("gdp_growth_saar")
+
+
+# =========================================================================
+# 4b. World Bank — world real GDP growth (annual) — fallback for the above
 # =========================================================================
 def fetch_world_bank_annual_gdp_growth() -> pd.Series:
     url = "https://api.worldbank.org/v2/country/WLD/indicator/NY.GDP.MKTP.KD.ZG"
@@ -365,9 +465,13 @@ def main():
     print("Fetching high-yield credit spread...")
     credit = fetch_credit_spread()
 
-    print("Fetching World Bank annual world GDP growth...")
-    gdp_annual = fetch_world_bank_annual_gdp_growth()
-    gdp_quarterly = get_quarterly_gdp_target(gdp_annual)
+    print("Fetching IMF quarterly world real GDP growth (QGDP_WCA)...")
+    try:
+        gdp_quarterly = fetch_imf_quarterly_gdp()
+    except Exception as e:
+        print(f"  [fallback] IMF quarterly GDP fetch failed ({e}), falling back to World Bank annual GDP (interpolated to quarterly)...")
+        gdp_annual = fetch_world_bank_annual_gdp_growth()
+        gdp_quarterly = get_quarterly_gdp_target(gdp_annual)
 
     series = [pmi_proxy, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit]
     panel = pd.concat([s for s in series if s is not None], axis=1)

@@ -25,20 +25,15 @@ python3 04_plot_decomposition.py   # optional: decomposition_chart.png (matplotl
 | `yield_curve` | FRED `T10Y2Y` (10y-2y Treasury spread) | classic leading recession indicator; dropped from the panel (with a warning) if FRED is unreachable — no clean fallback |
 | `usd` | FRED `DTWEXBGS` (broad trade-weighted USD index) | sign-flipped YoY so + = dollar easing (typically supportive of global growth) |
 | `credit` | FRED `BAMLH0A0HYM2` (ICE BofA US HY OAS) | sign-flipped so + = spreads tightening (easy credit); dropped from the panel (with a warning) if FRED is unreachable |
-| GDP target | World Bank `NY.GDP.MKTP.KD.ZG` (annual), interpolated to quarterly | **weakest link — see caveat below** |
+| GDP target | IMF Quarterly GDP database, World and Country Aggregates (`QGDP_WCA`), via the IMF SDMX 3.0 API | real quarterly, seasonally-adjusted world GDP growth, compounded to an annualized rate; falls back to World Bank `NY.GDP.MKTP.KD.ZG` (annual, interpolated to quarterly) with a warning if the IMF API is unreachable |
 
-Two honest caveats baked into the script's docstring, worth reading before
+One honest caveat baked into the script's docstring, worth reading before
 you trust the output:
 1. **The real J.P.Morgan/S&P Global Composite PMI is a paid, licensed
    dataset with no free API.** This script substitutes the OECD's
    Composite Leading Indicator, a genuinely free and conceptually similar
    (but numerically different) leading indicator. If you have a Refinitiv/
    Bloomberg/S&P subscription, swap in the real series.
-2. **There's no clean free API for quarterly world GDP.** The script
-   interpolates the World Bank's annual figure — fine for a trend line,
-   not a substitute for real quarterly data. This is the single highest-
-   value manual upgrade if you have access to a better GDP series (e.g.
-   OECD quarterly national accounts, or a data vendor's tracker).
 
 If the CPB scraper breaks (their workbook layout can change release to
 release), run `python3 01_build_panel_real.py --inspect-cpb` to dump the

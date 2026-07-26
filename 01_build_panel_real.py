@@ -367,12 +367,17 @@ def fetch_imf_quarterly_gdp() -> pd.Series:
             score -= 1
         return score
 
-    combined_text = world_df[indicator_cols].astype(str).agg(" ".join, axis=1)
-    scores = combined_text.map(indicator_score)
-    best = scores.max()
-    if best <= 0:
-        raise RuntimeError("Could not identify a real/SA/QoQ GDP growth indicator row in QGDP_WCA.")
-    world_df = world_df[scores == best]
+    indicator_text = world_df[indicator_cols[0]].astype(str)
+    indicator_code = indicator_text.str.split(":", 1).str[0].str.strip()
+    if "B1GQ_S1_Q" in indicator_code.values:
+        world_df = world_df[indicator_code == "B1GQ_S1_Q"]
+    else:
+        combined_text = indicator_text.agg(" ".join)
+        scores = combined_text.map(indicator_score)
+        best = scores.max()
+        if best <= 0:
+            raise RuntimeError("Could not identify a real/SA/QoQ GDP growth indicator row in QGDP_WCA.")
+        world_df = world_df[scores == best]
 
     quarters = world_df[time_col].map(_parse_sdmx_quarter)
     values = pd.to_numeric(world_df[val_col], errors="coerce")
@@ -382,6 +387,12 @@ def fetch_imf_quarterly_gdp() -> pd.Series:
 
     if s.empty:
         raise RuntimeError("QGDP_WCA query returned no usable World GDP growth observations.")
+
+    # If IMF returns a level/index series instead of YOY or QoQ growth,
+    # convert it to quarter-on-quarter growth before annualizing.
+    if (s.abs() > 50).all():
+        s = s.pct_change() * 100
+        s = s.dropna()
 
     # QGDP_WCA publishes non-annualized quarter-on-quarter growth; compound
     # to an annualized rate to match the gdp_growth_saar convention used

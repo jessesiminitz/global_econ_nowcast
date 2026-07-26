@@ -1,0 +1,8 @@
+var_explained=0.40687801364352666
+phi=0.9451638316005821
+sigma_w2=0.1087626549699767
+alpha=2.9038793143290595
+beta=3.491639595191328
+r2=0.14866546715583917
+weights=pmi:0.1109,trade:0.0781,ip:0.0783,oil:0.0824,fin:0.1097,ai:0.1057,copper:0.1135,yield_curve:0.0052,usd:0.0915,vix:0.0969,equity:0.1311,bank_equity:0.1161,lending_standards:0.0910,em_spread:0.1147,housing:0.0675,jobless_claims:0.0495,covid_stringency:-0.0151
+loadings_on_F=pmi:0.7674,trade:0.5405,ip:0.5419,oil:0.5700,fin:0.7584,ai:0.7313,copper:0.7853,yield_curve:0.0358,usd:0.6331,vix:0.6704,equity:0.9070,bank_equity:0.8033,lending_standards:0.6292,em_spread:0.7935,housing:0.4666,jobless_claims:0.3421,covid_stringency:-0.1043

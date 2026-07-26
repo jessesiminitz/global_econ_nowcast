@@ -1,0 +1,6 @@
+alpha_enet=0.006102760170101577
+l1_ratio_enet=1.0
+n_factors=3
+r2=0.9542263769464641
+intercept=2.2643700526003947
+weights=pmi:1.0749,trade:1.8267,ip:4.6331,oil:-0.0491,fin:-0.3004,ai:-0.3838,copper:-2.6963,yield_curve:-0.9033,usd:0.4348,vix:2.5011,equity:-1.3413,bank_equity:1.6252,lending_standards:-0.1190,em_spread:0.1745,housing:-0.5876,jobless_claims:-0.1140,covid_stringency:-1.7584

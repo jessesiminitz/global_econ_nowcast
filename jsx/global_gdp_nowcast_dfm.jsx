@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer, Legend,
+  ComposedChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ReferenceArea, ResponsiveContainer, Legend,
 } from "recharts";
 
 /* =================================================================
@@ -12,19 +12,25 @@ import {
              below is additive by construction, not an approximation).
      Step 2: AR(1) factor dynamics fit + Kalman filter/smoother.
    Bridge regression: quarterly GDP growth ~ alpha + beta * factor.
-   The panel now supports up to 10 indicators (PMI, trade, industrial
-   production, oil, financial conditions, AI/tech capex, copper, the
-   10y-2y yield curve slope, the broad USD index, and high-yield credit
-   spreads) — see 01_build_panel_real.py. This component renders
-   whichever driver keys are present in the loaded export, so it works
-   unchanged whether you feed it a 6- or 10-indicator run.
+   The panel now supports up to 22 indicators — the original 10 (PMI,
+   trade, industrial production, oil, financial conditions, AI/tech
+   capex, copper, the 10y-2y yield curve slope, the broad USD index, and
+   high-yield credit spreads) plus 12 more covering VIX, equities, bank
+   equities, lending standards, an EM/sovereign spread proxy, housing,
+   leverage, jobless claims, retail sales, consumer/business confidence,
+   and a COVID stringency index — see
+   01_build_panel_real.py. A second model (elastic-net/factor-ML, see
+   03_estimate_ml.py) competes against the DFM via a rolling backtest
+   (04_backtest.py); 05_export.py exports whichever one wins. This
+   component renders whichever driver keys are present in the loaded
+   export, so it works unchanged for any subset of the known indicators.
    Model fit stats below (54.4% var. explained, bridge R² = 0.93) are
    from the bundled 6-indicator example run. See methodology panel for
    the important caveat about this environment having no live
    data-vendor access.
 ================================================================= */
 
-// ---- output of 02_estimate_dfm.py / 03_export.py, last 48 quarters ----
+// ---- output of 02_estimate_dfm.py / 03_estimate_ml.py / 05_export.py, last 48 quarters ----
 // This is the bundled example run (6-indicator panel, predates the
 // copper/yield-curve/USD/credit additions below). Use "Load
 // decomposition_export.json" in the header to swap in your own
@@ -43,7 +49,7 @@ function validateDecompData(arr) {
   }
   const missing = REQUIRED_KEYS.filter((k) => !(k in arr[0]));
   if (missing.length) {
-    throw new Error(`Missing expected field(s): ${missing.join(", ")}. Is this a decomposition_export.json from 03_export.py?`);
+    throw new Error(`Missing expected field(s): ${missing.join(", ")}. Is this a decomposition_export.json from 05_export.py?`);
   }
   const hasIndicator = KNOWN_DRIVERS.some((d) => d.key in arr[0]);
   if (!hasIndicator) {
@@ -67,6 +73,18 @@ const KNOWN_DRIVERS = [
   { key: "yield_curve", label: "Yield curve (10y-2y)", color: "#7f9cf5" },
   { key: "usd", label: "USD index (easing = +)", color: "#d65f9e" },
   { key: "credit", label: "Credit spreads (HY OAS)", color: "#8fd6e8" },
+  { key: "vix", label: "VIX (calm = +)", color: "#e05252" },
+  { key: "equity", label: "Equity market performance", color: "#3fa7d6" },
+  { key: "bank_equity", label: "Bank equity index", color: "#8e6c88" },
+  { key: "lending_standards", label: "Bank lending standards (easing = +)", color: "#f2a65a" },
+  { key: "em_spread", label: "EM / sovereign spread proxy", color: "#4059ad" },
+  { key: "housing", label: "Housing prices", color: "#b0413e" },
+  { key: "leverage", label: "Leverage / credit-to-GDP", color: "#6b9080" },
+  { key: "jobless_claims", label: "Jobless claims (falling = +)", color: "#f7b32b" },
+  { key: "retail_sales", label: "Retail sales", color: "#5adbb5" },
+  { key: "consumer_conf", label: "Consumer confidence", color: "#ee6f57" },
+  { key: "business_conf", label: "Business confidence", color: "#849b96" },
+  { key: "covid_stringency", label: "COVID stringency (less strict = +)", color: "#d4a5a5" },
   { key: "residual", label: "Idiosyncratic residual", color: "#4a5560" },
 ];
 
@@ -101,7 +119,7 @@ function CustomTooltip({ active, payload, label }) {
         <span className="mono">{fmtPP(row.trend)}</span>
       </div>
       <div className="ttip-row ttip-total">
-        <span>{row.actualKnown ? "Fitted / Actual" : "Nowcast (in progress)"}</span>
+        <span>{row.actualKnown ? "Fitted / Actual" : "Forecast"}</span>
         <span className="mono">
           {row.fitted.toFixed(2)}% {row.actualKnown ? `/ ${row.actual.toFixed(2)}%` : ""}
         </span>
@@ -116,24 +134,40 @@ export default function GlobalGDPNowcastDFM() {
   const [fileName, setFileName] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
-  const chartData = useMemo(
-    () =>
-      rawData.map((d, i) =>
-        i === rawData.length - 1 ? { ...d, actual: null, actualKnown: false } : { ...d, actualKnown: true }
-      ),
-    [rawData]
-  );
+  // Newer exports (05_export.py) carry an explicit `is_forecast` flag on
+  // every row, marking however many quarters were forecast ahead of the
+  // last published GDP print (see model_lib.forecast_quarters()). Older
+  // exports/the bundled example predate that field — for those, fall back
+  // to the original behavior of treating just the last row as an
+  // in-progress nowcast.
+  const chartData = useMemo(() => {
+    const hasForecastFlag = rawData.some((d) => "is_forecast" in d);
+    if (hasForecastFlag) {
+      return rawData.map((d) => ({ ...d, actualKnown: !d.is_forecast }));
+    }
+    return rawData.map((d, i) =>
+      i === rawData.length - 1
+        ? { ...d, actual: null, actualKnown: false, is_forecast: true }
+        : { ...d, actualKnown: true, is_forecast: false }
+    );
+  }, [rawData]);
 
   const latest = chartData[chartData.length - 1];
+  const firstForecastIdx = chartData.findIndex((d) => d.is_forecast);
+  // The headline/driver breakdown should reflect the *nearest-term* nowcast
+  // (the first forecast quarter), not whichever forecast quarter happens to
+  // be last in the chart — those further out are extrapolated, not fresh.
+  const nowcastRow = firstForecastIdx >= 0 ? chartData[firstForecastIdx] : latest;
+  const forecastQuarterCount = chartData.filter((d) => d.is_forecast).length;
   // Which indicator keys this particular export actually carries (6- or
   // 10-indicator panel, or anything in between).
   const activeDrivers = useMemo(
-    () => KNOWN_DRIVERS.filter((d) => d.key !== "residual" && d.key in latest),
-    [latest]
+    () => KNOWN_DRIVERS.filter((d) => d.key !== "residual" && d.key in nowcastRow),
+    [nowcastRow]
   );
   const drivers = useMemo(
-    () => activeDrivers.map((d) => ({ ...d, pp: latest[d.key] })).sort((a, b) => b.pp - a.pp),
-    [activeDrivers, latest]
+    () => activeDrivers.map((d) => ({ ...d, pp: nowcastRow[d.key] })).sort((a, b) => b.pp - a.pp),
+    [activeDrivers, nowcastRow]
   );
   // Stacked-bar series: active indicators plus the residual bar (residual is
   // always present per REQUIRED_KEYS).
@@ -279,9 +313,10 @@ export default function GlobalGDPNowcastDFM() {
 
       <div className="headline-row">
         <div>
-          <div className="headline-num">{latest.fitted >= 0 ? "+" : ""}{latest.fitted.toFixed(1)}%</div>
+          <div className="headline-num">{nowcastRow.fitted >= 0 ? "+" : ""}{nowcastRow.fitted.toFixed(1)}%</div>
           <div className="mono" style={{ fontSize: 11, color: "var(--dim)", marginTop: 4 }}>
-            annualized · {latest.q} nowcast, quarter still in progress
+            annualized · {nowcastRow.q} {nowcastRow.is_forecast ? "nowcast" : "actual"}
+            {forecastQuarterCount > 1 && ` · ${forecastQuarterCount} quarters forecast ahead in the chart below`}
           </div>
         </div>
         <div className="headline-sub">
@@ -313,9 +348,20 @@ export default function GlobalGDPNowcastDFM() {
               axisLine={false} tickLine={false} width={38}
               label={{ value: "pp, annualized", angle: -90, position: "insideLeft", fill: "#5f6d76", fontSize: 10 }} />
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" />
+            {firstForecastIdx > 0 && (
+              <ReferenceArea x1={chartData[firstForecastIdx].q} x2={latest.q}
+                fill="#ffffff" fillOpacity={0.035} strokeOpacity={0} ifOverflow="extendDomain" />
+            )}
+            {firstForecastIdx > 0 && (
+              <ReferenceLine x={chartData[firstForecastIdx].q} stroke="rgba(255,255,255,0.3)" strokeDasharray="3 3" />
+            )}
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
             {chartBars.map((d) => (
-              <Bar key={d.key} dataKey={d.key} stackId="s" fill={d.color} isAnimationActive={false} />
+              <Bar key={d.key} dataKey={d.key} stackId="s" fill={d.color} isAnimationActive={false}>
+                {chartData.map((row, i) => (
+                  <Cell key={i} fillOpacity={row.is_forecast ? 0.4 : 1} />
+                ))}
+              </Bar>
             ))}
             <Line type="monotone" dataKey="actual" stroke="#ece8e0" strokeWidth={1.6} dot={false}
               connectNulls={false} isAnimationActive={false} />
@@ -331,7 +377,7 @@ export default function GlobalGDPNowcastDFM() {
       </div>
 
       <div className="panel-title" style={{ marginTop: 28 }}>This quarter's breakdown</div>
-      <div className="panel-sub">{latest.q}, ranked by contribution size</div>
+      <div className="panel-sub">{nowcastRow.q}{nowcastRow.is_forecast ? " (nowcast)" : ""}, ranked by contribution size</div>
       <div className="now-grid">
         {drivers.map((d) => (
           <div className="now-card" key={d.key}>
@@ -341,7 +387,7 @@ export default function GlobalGDPNowcastDFM() {
         ))}
         <div className="now-card">
           <div className="nm" style={{ color: "var(--dim)" }}>Trend</div>
-          <div className="np mono">{fmtPP(latest.trend)}</div>
+          <div className="np mono">{fmtPP(nowcastRow.trend)}</div>
         </div>
       </div>
 
@@ -366,9 +412,9 @@ export default function GlobalGDPNowcastDFM() {
 
           <p style={{ marginTop: 10 }}>The table below reflects the <b>bundled 6-indicator
           example run</b> (loadings will shift once you load a fresh export built from the
-          10-indicator panel — rerun <code className="mono">01_build_panel_real.py</code>
-          through <code className="mono">03_export.py</code> to get real weights for
-          copper/yield_curve/usd/credit).</p>
+          wider panel — rerun <code className="mono">py/01_build_panel_real.py</code>
+          through <code className="mono">py/05_export.py</code> to get real weights for
+          copper/yield_curve/usd/credit and the newer indicators).</p>
 
           <table>
             <thead><tr><th>Indicator</th><th>Loading (w)</th><th>Reads as</th></tr></thead>
@@ -401,12 +447,14 @@ export default function GlobalGDPNowcastDFM() {
             better; a single common factor cannot.
           </div>
 
-          <p style={{ marginTop: 10 }}>To put this on real data: run <code className="mono">01_build_panel_real.py</code>
-          on a machine with internet access — it now also pulls copper (FRED), the 10y-2y yield
-          curve (FRED), a broad USD index (FRED), and high-yield credit spreads (FRED) alongside
-          the original six series — then rerun <code className="mono">02_estimate_dfm.py</code> and
-          <code className="mono"> 03_export.py</code> unchanged and load the fresh
-          <code className="mono"> decomposition_export.json</code> above.</p>
+          <p style={{ marginTop: 10 }}>To put this on real data: run <code className="mono">py/01_build_panel_real.py</code>
+          on a machine with internet access — it now pulls 22 indicators total, including
+          copper, the 10y-2y yield curve, a broad USD index, and high-yield credit spreads
+          (all FRED), plus VIX/equities/bank-lending-standards/housing/leverage/confidence
+          surveys/jobless-claims/COVID-stringency — then rerun
+          <code className="mono"> py/02_estimate_dfm.py</code>, <code className="mono">py/03_estimate_ml.py</code>,
+          <code className="mono"> py/04_backtest.py</code>, and <code className="mono">py/05_export.py</code>
+          unchanged and load the fresh <code className="mono">json/decomposition_export.json</code> above.</p>
         </div>
       )}
 

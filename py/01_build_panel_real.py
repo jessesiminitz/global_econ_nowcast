@@ -2,6 +2,7 @@
 Build panel_monthly.csv and gdp_quarterly.csv from REAL, LIVE data sources.
 """
 import io
+import os
 import re
 import sys
 import warnings
@@ -11,20 +12,50 @@ import numpy as np
 import pandas as pd
 import requests
 
+from paths import CSV
+
 warnings.filterwarnings("ignore")
 
 START_DATE = "2005-01-01"
 FETCH_START_DATE = "2004-01-01"
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
+# Set this in your shell (`export FRED_API_KEY=...`) to use the official,
+# authenticated FRED REST API instead of the unauthenticated fredgraph.csv
+# scrape below — the latter has been unreliable (aggressive rate limiting /
+# timeouts) for the wider set of series this pipeline now pulls. Get a free
+# key at https://fred.stlouisfed.org/docs/api/api_key.html
+FRED_API_KEY = os.environ.get("FRED_API_KEY")
+
 
 # =========================================================================
 # 1. FRED (with Yahoo Finance fallback if FRED blocks/times out)
 # =========================================================================
 def fetch_fred_series(series_id: str) -> pd.Series:
+    if FRED_API_KEY:
+        url = "https://api.stlouisfed.org/fred/series/observations"
+        params = {
+            "series_id": series_id,
+            "api_key": FRED_API_KEY,
+            "file_type": "json",
+            "observation_start": FETCH_START_DATE,
+        }
+        r = requests.get(url, params=params, headers=UA, timeout=30)
+        r.raise_for_status()
+        obs = r.json().get("observations", [])
+        if not obs:
+            raise RuntimeError(f"FRED API returned no observations for {series_id}")
+        df = pd.DataFrame(obs)
+        df["date"] = pd.to_datetime(df["date"])
+        df["value"] = pd.to_numeric(df["value"], errors="coerce")
+        return df.set_index("date")["value"].dropna()
+
+    # Unauthenticated fallback (no FRED_API_KEY set) — scrapes the same CSV
+    # the interactive FRED chart downloads, but with no API key this is more
+    # aggressively rate-limited and prone to timeouts.
     url = "https://fred.stlouisfed.org/graph/fredgraph.csv"
     params = {"id": series_id, "cosd": FETCH_START_DATE}
-    r = requests.get(url, params=params, headers=UA, timeout=10)
+    r = requests.get(url, params=params, headers=UA, timeout=30)
     r.raise_for_status()
     df = pd.read_csv(io.StringIO(r.text))
     df.columns = ["date", "value"]
@@ -166,6 +197,201 @@ def fetch_credit_spread() -> pd.Series:
 
     monthly = spread.resample("MS").mean()
     return (-monthly).rename("credit")
+
+
+# =========================================================================
+# 1b. Additional financial-conditions block (VIX, equities, bank equities,
+#     lending standards, EM spread proxy, housing, leverage) — all via FRED
+#     or yfinance, reusing the fetch_fred_series/yfinance fallback machinery
+#     above rather than introducing a new data-source client.
+# =========================================================================
+def fetch_vix() -> pd.Series:
+    """Cboe VIX, monthly average, sign-flipped z-score so + = calm (low vol),
+    consistent with the fin/usd/credit sign convention."""
+    import yfinance as yf
+    df_yf = yf.download("^VIX", start=FETCH_START_DATE, progress=False)
+    if isinstance(df_yf.columns, pd.MultiIndex):
+        px = df_yf["Close"]["^VIX"]
+    else:
+        px = df_yf["Close"]
+    if isinstance(px, pd.DataFrame):
+        px = px.iloc[:, 0]
+    monthly = px.resample("MS").mean()
+    z = (monthly - monthly.mean()) / monthly.std()
+    return (-z).rename("vix")
+
+
+def fetch_equity() -> pd.Series:
+    """
+    S&P 500 (^GSPC), YoY % change — used in preference to a global ETF
+    (e.g. ACWI) because global-equity ETFs mostly launched in 2008+ and
+    would truncate the panel's usable history right before the GFC; ^GSPC
+    has decades of history and is highly correlated with global equity
+    cycles anyway. US proxy for global equity performance.
+    """
+    import yfinance as yf
+    df_yf = yf.download("^GSPC", start=FETCH_START_DATE, progress=False)
+    if isinstance(df_yf.columns, pd.MultiIndex):
+        px = df_yf["Close"]["^GSPC"]
+    else:
+        px = df_yf["Close"]
+    if isinstance(px, pd.DataFrame):
+        px = px.iloc[:, 0]
+    monthly = px.resample("MS").last()
+    yoy = monthly.pct_change(12) * 100
+    return yoy.rename("equity")
+
+
+def fetch_bank_equity() -> pd.Series:
+    """KBW Nasdaq Bank Index (^BKX), YoY % change — global banking-sector
+    health proxy (a common leading indicator of financial-system stress)."""
+    import yfinance as yf
+    df_yf = yf.download("^BKX", start=FETCH_START_DATE, progress=False)
+    if isinstance(df_yf.columns, pd.MultiIndex):
+        px = df_yf["Close"]["^BKX"]
+    else:
+        px = df_yf["Close"]
+    if isinstance(px, pd.DataFrame):
+        px = px.iloc[:, 0]
+    monthly = px.resample("MS").last()
+    yoy = monthly.pct_change(12) * 100
+    return yoy.rename("bank_equity")
+
+
+def fetch_lending_standards() -> pd.Series:
+    """
+    Fed Senior Loan Officer Opinion Survey (FRED DRTSCILM): net % of banks
+    tightening C&I loan standards, quarterly. Sign-flipped so + = easing
+    (consistent with fin/usd/credit), resampled to monthly via forward-fill.
+    US-only (no clean global SLOOS equivalent), used as a bank-lending-cycle
+    proxy — the same honest US-proxy tradeoff as `jobless_claims`/`housing` below.
+    """
+    q = fetch_fred_series("DRTSCILM")
+    monthly = (-q).resample("MS").ffill()
+    return monthly.rename("lending_standards")
+
+
+def fetch_em_spread() -> pd.Series:
+    """
+    iShares MSCI Emerging Markets ETF (EEM), YoY % change, used as an
+    EM/sovereign-stress proxy (no free live EMBI feed exists — real EMBI is a
+    JPMorgan-licensed product; EEM is used in preference to the more literal
+    EM-bond ETF EMB because EMB only launched in Dec 2007, which would
+    truncate the panel's usable history right before the GFC). Positive = EM
+    risk appetite rising = spreads tightening = easy conditions, consistent
+    with the `credit` sign convention.
+    """
+    import yfinance as yf
+    df_yf = yf.download("EEM", start=FETCH_START_DATE, progress=False)
+    if isinstance(df_yf.columns, pd.MultiIndex):
+        px = df_yf["Close"]["EEM"]
+    else:
+        px = df_yf["Close"]
+    if isinstance(px, pd.DataFrame):
+        px = px.iloc[:, 0]
+    monthly = px.resample("MS").last()
+    yoy = monthly.pct_change(12) * 100
+    return yoy.rename("em_spread")
+
+
+def fetch_housing() -> pd.Series:
+    """
+    S&P/Case-Shiller US National Home Price Index (FRED CSUSHPINSA), YoY %
+    change. US-only proxy standing in for a global housing-price cycle (a
+    genuine BIS global property-price aggregate has no simple free API) —
+    same honest-caveat tradeoff as the PMI substitute.
+    """
+    level = fetch_fred_series("CSUSHPINSA")
+    monthly = level.resample("MS").mean()
+    yoy = monthly.pct_change(12) * 100
+    return yoy.rename("housing")
+
+
+def fetch_leverage() -> pd.Series:
+    """
+    BIS "Total Credit to Private Non-Financial Sector" for the US, as a % of
+    GDP, mirrored on FRED (CRDQUSAPABIS), YoY change in the ratio (pp).
+    US-only proxy for a global credit/leverage cycle — BIS's own global
+    credit-to-GDP-gap dataset has no simple free REST API, so this uses the
+    FRED mirror of BIS's underlying series instead.
+    """
+    q = fetch_fred_series("CRDQUSAPABIS")
+    monthly = q.resample("MS").ffill()
+    yoy = monthly.diff(12)
+    return yoy.rename("leverage")
+
+
+def fetch_jobless_claims() -> pd.Series:
+    """
+    US initial jobless claims (FRED ICSA), weekly, resampled to monthly mean
+    and sign-flipped (YoY % change, negated) so + = claims falling = labor
+    market improving. US-only proxy for global labor-market stress.
+    """
+    weekly = fetch_fred_series("ICSA")
+    monthly = weekly.resample("MS").mean()
+    yoy = monthly.pct_change(12) * 100
+    return (-yoy).rename("jobless_claims")
+
+
+# =========================================================================
+# 1c. OECD-sourced block (retail sales, consumer/business confidence) —
+#     mirrored onto FRED under OECD's MEI naming convention, reusing
+#     fetch_fred_series rather than a new SDMX client. (No harmonized
+#     unemployment series here — OECD doesn't publish a clean aggregate for
+#     it, unlike the CLI/CCI/BCI composites below.)
+# =========================================================================
+def fetch_retail_sales() -> pd.Series:
+    """OECD Total retail trade volume index (FRED-mirrored OECD MEI series),
+    3-month-annualized growth (matching the trade/ip transform convention)."""
+    level = fetch_fred_series("SLRTTO01OEQ659S")
+    monthly = level.resample("MS").ffill()
+    g = (monthly / monthly.shift(3)) ** 4 - 1
+    return (g * 100).rename("retail_sales")
+
+
+def fetch_consumer_confidence() -> pd.Series:
+    """OECD Consumer Confidence Indicator, composite (FRED-mirrored OECD MEI
+    series), de-meaned so 0 = long-run-average confidence."""
+    level = fetch_fred_series("CSCICP03O9M665S")
+    monthly = level.resample("MS").mean()
+    return (monthly - monthly.mean()).rename("consumer_conf")
+
+
+def fetch_business_confidence() -> pd.Series:
+    """OECD Business Tendency Survey, composite confidence indicator
+    (FRED-mirrored OECD MEI series), de-meaned so 0 = long-run average."""
+    level = fetch_fred_series("BSCICP03O9M665S")
+    monthly = level.resample("MS").mean()
+    return (monthly - monthly.mean()).rename("business_conf")
+
+
+# =========================================================================
+# 1d. COVID stringency index — Oxford COVID-19 Government Response Tracker
+# =========================================================================
+def fetch_covid_stringency() -> pd.Series:
+    """
+    Oxford COVID-19 Government Response Tracker (OxCGRT), StringencyIndex
+    averaged across all reporting countries per day, resampled to monthly,
+    sign-flipped so + = less stringent (supportive of growth). Explicitly
+    0 outside the pandemic's active-tracking window (2020-2022) — that's the
+    real value (no lockdown in force), not a missing observation.
+    """
+    url = (
+        "https://raw.githubusercontent.com/OxCGRT/covid-policy-dataset/main/"
+        "data/OxCGRT_compact_national_v1.csv"
+    )
+    df = pd.read_csv(url, usecols=["Date", "StringencyIndex_Average"], low_memory=False)
+    df["Date"] = pd.to_datetime(df["Date"], format="%Y%m%d", errors="coerce")
+    df = df.dropna(subset=["Date"])
+    daily_avg = df.groupby("Date")["StringencyIndex_Average"].mean()
+    monthly = daily_avg.resample("MS").mean()
+    # Reindex through "now" (not just the source data's own last date) —
+    # OxCGRT stopped tracking in ~Dec 2022, but that means 0 stringency for
+    # every month since, all the way to the present, not a missing value.
+    today = pd.Timestamp.today().normalize().replace(day=1)
+    idx = pd.date_range(FETCH_START_DATE, max(monthly.index.max(), today), freq="MS")
+    monthly = monthly.reindex(idx).fillna(0.0)
+    return (-monthly).rename("covid_stringency")
 
 
 # =========================================================================
@@ -367,17 +593,34 @@ def fetch_imf_quarterly_gdp() -> pd.Series:
             score -= 1
         return score
 
+    # QGDP_WCA carries multiple TYPE_OF_TRANSFORMATION variants per indicator
+    # per quarter (e.g. an index/level series AND a period-over-period %
+    # change series) — without filtering on this, the two get silently mixed
+    # together after the later dedup step, producing a nonsense series that
+    # alternates between GDP levels and growth rates quarter to quarter.
+    transformation_cols = [c for c in df.columns if "TRANSFORMATION" in c.upper()]
+
+    def restrict_to_pop_pch(frame: pd.DataFrame) -> pd.DataFrame:
+        if not transformation_cols:
+            return frame
+        is_pop_pch = pd.Series(False, index=frame.index)
+        for c in transformation_cols:
+            is_pop_pch |= frame[c].astype(str).str.contains("POP_PCH", case=False, na=False)
+        return frame[is_pop_pch] if is_pop_pch.any() else frame
+
     indicator_text = world_df[indicator_cols[0]].astype(str)
-    indicator_code = indicator_text.str.split(":", 1).str[0].str.strip()
+    indicator_code = indicator_text.str.split(":", n=1).str[0].str.strip()
     if "B1GQ_S1_Q" in indicator_code.values:
-        world_df = world_df[indicator_code == "B1GQ_S1_Q"]
+        world_df = restrict_to_pop_pch(world_df[indicator_code == "B1GQ_S1_Q"])
     else:
-        combined_text = indicator_text.agg(" ".join)
-        scores = combined_text.map(indicator_score)
+        # (per-row scoring: the previous version aggregated indicator_text
+        # into a single joined string before scoring, which both discarded
+        # any per-row distinction and doesn't support .map() on a plain str)
+        scores = indicator_text.map(indicator_score)
         best = scores.max()
         if best <= 0:
             raise RuntimeError("Could not identify a real/SA/QoQ GDP growth indicator row in QGDP_WCA.")
-        world_df = world_df[scores == best]
+        world_df = restrict_to_pop_pch(world_df[scores == best])
 
     quarters = world_df[time_col].map(_parse_sdmx_quarter)
     values = pd.to_numeric(world_df[val_col], errors="coerce")
@@ -448,6 +691,13 @@ def fetch_ai_tech_proxy() -> pd.Series:
 # main
 # =========================================================================
 def main():
+    if FRED_API_KEY:
+        print("FRED_API_KEY detected — using the authenticated FRED REST API.")
+    else:
+        print("No FRED_API_KEY set — falling back to the unauthenticated fredgraph.csv "
+              "scrape (more prone to rate limiting/timeouts). Set FRED_API_KEY for "
+              "more reliable FRED fetches.")
+
     print("Fetching Brent crude...")
     oil = fetch_oil_shock()
 
@@ -476,6 +726,27 @@ def main():
     print("Fetching high-yield credit spread...")
     credit = fetch_credit_spread()
 
+    def try_fetch(label, fn):
+        print(f"Fetching {label}...")
+        try:
+            return fn()
+        except Exception as e:
+            print(f"  [skip] {label} fetch failed ({e}), dropping from the panel.")
+            return None
+
+    vix = try_fetch("VIX", fetch_vix)
+    equity = try_fetch("equity index (^GSPC)", fetch_equity)
+    bank_equity = try_fetch("bank equity index (^BKX)", fetch_bank_equity)
+    lending_standards = try_fetch("bank lending standards (SLOOS)", fetch_lending_standards)
+    em_spread = try_fetch("EM/sovereign spread proxy (EEM)", fetch_em_spread)
+    housing = try_fetch("housing prices (Case-Shiller)", fetch_housing)
+    leverage = try_fetch("leverage / credit-to-GDP proxy", fetch_leverage)
+    jobless_claims = try_fetch("weekly jobless claims", fetch_jobless_claims)
+    retail_sales = try_fetch("retail sales (OECD)", fetch_retail_sales)
+    consumer_conf = try_fetch("consumer confidence (OECD)", fetch_consumer_confidence)
+    business_conf = try_fetch("business confidence (OECD)", fetch_business_confidence)
+    covid_stringency = try_fetch("COVID stringency index (OxCGRT)", fetch_covid_stringency)
+
     print("Fetching IMF quarterly world real GDP growth (QGDP_WCA)...")
     try:
         gdp_quarterly = fetch_imf_quarterly_gdp()
@@ -484,14 +755,51 @@ def main():
         gdp_annual = fetch_world_bank_annual_gdp_growth()
         gdp_quarterly = get_quarterly_gdp_target(gdp_annual)
 
-    series = [pmi_proxy, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit]
+    series = [
+        pmi_proxy, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit,
+        vix, equity, bank_equity, lending_standards, em_spread, housing,
+        leverage, jobless_claims, retail_sales, consumer_conf, business_conf,
+        covid_stringency,
+    ]
+
+    # A fetch can technically succeed but return a series that's been
+    # discontinued (e.g. a FRED/OECD-mirror ticker that stopped updating
+    # years ago) or newly created (recent index rebase means little history
+    # before some cutoff) — either way, that column would silently truncate
+    # every OTHER column's usable history once the modeling scripts do
+    # dropna(subset=cols), since all columns must be non-null on the same
+    # row. Better to drop a column like that here, with a clear reason,
+    # than to let it wreck the whole panel's date range downstream.
+    panel_start = pd.Timestamp(START_DATE)
+    panel_end = pd.Timestamp.today().normalize().replace(day=1)
+    checked_series = []
+    for s in series:
+        if s is None:
+            continue
+        first, last = s.first_valid_index(), s.last_valid_index()
+        if first is None:
+            continue
+        start_lag_months = (first.year - panel_start.year) * 12 + (first.month - panel_start.month)
+        end_lag_months = (panel_end.year - last.year) * 12 + (panel_end.month - last.month)
+        if start_lag_months > 30:
+            print(f"  [skip] '{s.name}' data doesn't start until {first.date()} "
+                  f"(panel starts {panel_start.date()}) — dropping to avoid truncating "
+                  "every other column's usable history.")
+            continue
+        if end_lag_months > 6:
+            print(f"  [skip] '{s.name}' data ends at {last.date()} (panel needs data "
+                  f"through ~{panel_end.date()}) — likely discontinued, dropping.")
+            continue
+        checked_series.append(s)
+    series = checked_series
+
     panel = pd.concat([s for s in series if s is not None], axis=1)
     panel = panel.loc[START_DATE:].resample("MS").mean()
     panel = panel.rename(columns={"pmi_proxy_oecd_cli": "pmi"})
     panel = panel.interpolate(limit=2)
 
-    panel.to_csv("panel_monthly.csv")
-    gdp_quarterly.to_csv("gdp_quarterly.csv")
+    panel.to_csv(CSV / "panel_monthly.csv")
+    gdp_quarterly.to_csv(CSV / "gdp_quarterly.csv")
 
     print("\nSaved panel_monthly.csv:")
     print(panel.tail(8))

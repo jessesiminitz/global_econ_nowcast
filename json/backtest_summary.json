@@ -1,0 +1,23 @@
+{
+  "winner": "dfm",
+  "dfm": {
+    "calm_rmse": 2.907802131217886,
+    "calm_mae": 1.7263379366267604,
+    "n_calm": 41,
+    "stressed_rmse": 22.970665485042154,
+    "stressed_mae": 20.670628787698,
+    "n_stressed": 3,
+    "overall_rmse": 6.622314654882672,
+    "overall_mae": 3.0179941310179816
+  },
+  "elastic_net": {
+    "calm_rmse": 2.8344928942980885,
+    "calm_mae": 1.7550228837425252,
+    "n_calm": 41,
+    "stressed_rmse": 24.95648050438606,
+    "stressed_mae": 23.7682810334519,
+    "n_stressed": 3,
+    "overall_rmse": 7.067669839388184,
+    "overall_mae": 3.255926848495437
+  }
+}

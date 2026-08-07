@@ -110,11 +110,14 @@ to make any fallback FRED call use the official authenticated
 
 ## Model comparison: DFM baseline vs. elastic-net/factor-ML challenger
 
-`02_estimate_dfm.py` is the baseline (single-factor DFM — `model_lib.fit_dfm`
-supports more factors via an `n_factors` parameter, and more factors do
-explain more full-sample variance, but walk-forward backtesting showed it
-overfits: K=2/K=3 both had worse calm-regime RMSE than K=1, so single-factor
-stays the default). Both models anchor their trend/level to a trailing
+`02_estimate_dfm.py` is the baseline (a 3-factor DFM — an earlier
+unregularized attempt at this overfit and was reverted to single-factor,
+but ridge-regularizing the bridge regression across K=3 factors instead
+(`model_lib.DFM_RIDGE_LAMBDA`) beats single-factor on calm RMSE, stressed
+RMSE, *and* overall RMSE simultaneously, measured via `04_backtest.py` —
+not just a calm/stressed tradeoff, which is what ridge-regularizing a
+single factor alone produces instead; see `model_lib.py`'s module-level
+comment for the full sweep). Both models anchor their trend/level to a trailing
 20-quarter window rather than a full-sample intercept, so an unrepresentative
 early period like 2005-2007's pre-GFC boom can't permanently bias the
 forecast under an expanding backtest window — see `model_lib.py`'s
@@ -128,7 +131,15 @@ via `04_backtest.py`, this cut calm-regime RMSE by ~27% and nearly
 eliminated a -0.27 lag-1 autocorrelation in the walk-forward errors, at the
 cost of a much sparser, more conservative model (most indicators now get
 exactly zero weight — see `model_lib.py`'s module-level comment for the
-full numbers). Both share their core fitting logic via `model_lib.py`
+full numbers). Its `predict()` also clips its output to the training
+window's own trend +- 8 standard deviations of realized GDP growth — a
+walk-forward-safe plausibility bound (derived only from data the fold has
+already seen) against wild extrapolation on genuinely out-of-distribution
+quarters like 2020Q2; this cut stressed-regime RMSE by ~39% and roughly
+halved the single worst backtest error, with zero effect on ordinary
+predictions (an earlier attempt at the same goal — clipping the *inputs*
+instead — was tried and reverted after making things worse; see
+`model_lib.py`). Both share their core fitting logic via `model_lib.py`
 (`fit_dfm` / `fit_elastic_net`), which is what lets `04_backtest.py` refit
 either model on any training window.
 

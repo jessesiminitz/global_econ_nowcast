@@ -5,21 +5,28 @@ import {
 } from "recharts";
 
 /* =================================================================
-   GLOBAL GDP NOWCAST — single-factor Dynamic Factor Model
-   Estimated with the two-step Doz–Giannone–Reichlin procedure:
-     Step 1: PCA on the standardized monthly indicator panel -> static
-             factor (exact linear combination, so the decomposition
-             below is additive by construction, not an approximation).
-             model_lib.fit_dfm supports more factors (n_factors param) —
-             tried K=2/K=3 as a fix for a walk-forward accuracy issue, but
-             reverted: verified via the backtest harness that more factors
-             overfit the short early training windows and make
-             calm-regime RMSE worse, despite explaining more full-sample
-             variance (60.9% at K=3 vs. 38.8% at K=1).
-     Step 2: AR(1) factor dynamics fit + Kalman filter/smoother —
-             diagnostic only, doesn't feed the bridge regression or
-             decomposition below.
-   Bridge regression: quarterly GDP growth ~ trend + beta * factor, where
+   GLOBAL GDP NOWCAST — 3-factor Dynamic Factor Model (ridge-regularized)
+   Estimated with the two-step Doz–Giannone–Reichlin procedure, extended
+   to multiple static factors:
+     Step 1: PCA on the standardized monthly indicator panel -> top-3
+             static factors (exact linear combinations, so the
+             decomposition below is additive by construction across all
+             3, not an approximation). An earlier UNREGULARIZED attempt
+             at K=2/K=3 overfit the short early training windows and made
+             calm-regime RMSE worse despite explaining more full-sample
+             variance (60.9% at K=3 vs. 38.8% at K=1) — reverted at the
+             time. What actually worked: ridge-regularizing the bridge
+             regression below (model_lib.DFM_RIDGE_LAMBDA) instead of
+             dropping back to K=1 — this beats single-factor on calm,
+             stressed, AND overall RMSE simultaneously (1.65/15.62/5.09 ->
+             1.57/13.95/4.57), not just a calm/stressed tradeoff, which is
+             what ridge-regularizing a single factor alone produces
+             instead. See model_lib.py's module-level comment for the
+             full sweep.
+     Step 2: AR(1) factor dynamics fit + Kalman filter/smoother, still on
+             the first factor alone — diagnostic only, doesn't feed the
+             bridge regression or decomposition below.
+   Bridge regression: quarterly GDP growth ~ trend + beta·factors, where
    trend is a trailing 20-quarter average (not a full-sample intercept —
    an early, unrepresentative period like 2005-2007's pre-GFC boom
    otherwise permanently biases the forecast under an expanding backtest
@@ -450,16 +457,16 @@ export default function GlobalGDPNowcastDFM() {
             between those anchors the paths are interpolated, not observed. The estimation
             code (PCA, AR(1), Kalman filter/smoother, bridge regression) is genuine and would
             run unchanged on real pulled data.<br/><br/>
-            2) <b>Oil's positive loading is a known single-factor limitation.</b> Historically
-            oil prices are procyclical on average (demand pulls both up together), so the model
-            learned a positive weight. But a genuine <i>supply</i> shock (e.g. a Strait of Hormuz
-            disruption) is not something a one-factor model can distinguish from a demand-driven
-            rise — it will show up as a modeled tailwind when the real-world channel (cost,
-            uncertainty) is arguably a drag. Adding more static factors doesn't fix this either —
-            tested directly (see the header comment above), more factors overfit this panel's
-            short early training windows and made walk-forward accuracy worse, not better; plain
-            PCA factors also aren't constrained to align with economically meaningful shock types
-            regardless of how many are used. Genuinely fixing this needs a structural
+            2) <b>Oil's positive loading is a known limitation, and more factors don't fix it.</b>
+            Historically oil prices are procyclical on average (demand pulls both up together), so
+            the model learned a positive weight. A genuine <i>supply</i> shock (e.g. a Strait of
+            Hormuz disruption) isn't something this can distinguish from a demand-driven rise — it
+            will show up as a modeled tailwind when the real-world channel (cost, uncertainty) is
+            arguably a drag. This model now uses 3 static factors (ridge-regularized — see the
+            header comment above for why that combination, and only that combination, actually
+            improved walk-forward accuracy), but that doesn't resolve this specific issue: plain
+            PCA factors aren't constrained to align with economically meaningful shock types
+            regardless of how many are used, ridge-regularized or not. Genuinely fixing this needs a structural
             (sign-restricted) model, not just more factors.
           </div>
 

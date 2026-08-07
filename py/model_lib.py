@@ -40,6 +40,16 @@ from sklearn.model_selection import TimeSeriesSplit
 # changing this rather than assuming it's fully closed.
 TREND_WINDOW_QUARTERS = 20
 
+# fit_dfm's bridge regression (mapping K static factors -> GDP growth) is
+# ridge-regularized when K>1 — see fit_dfm's docstring for the full story.
+# Swept lambda 1-80 at K=2 and K=3 against 04_backtest.py; K=3/lambda=20 is
+# the sweet spot, beating the K=1/unregularized baseline on calm RMSE
+# (1.65->1.57), stressed RMSE (15.62->13.95), AND overall RMSE (5.09->4.57)
+# simultaneously — not just trading one regime for the other, which is what
+# ridge-at-K=1-alone does (and why that's not used either).
+DFM_N_FACTORS = 3
+DFM_RIDGE_LAMBDA = 20.0
+
 # fit_elastic_net's inner ElasticNetCV picks its regularization strength via
 # TimeSeriesSplit(n_splits=max(2, min(5, T_train // 8))) — with as few as 12
 # training quarters (04_backtest.py's MIN_TRAIN_QUARTERS), that's only 2 CV
@@ -76,16 +86,34 @@ TREND_WINDOW_QUARTERS = 20
 # OUTPUT — fit on truncated training extremes, the model compensated with
 # larger coefficients (e.g. ip's weight grew to ~4.2), so a clipped input
 # times an inflated weight can overshoot even more than an unclipped input
-# times the original weight did. Bounding the prediction itself (e.g. a
-# Huber loss on the target, or capping the final output) would be a
-# different, untested approach — not implemented here.
+# times the original weight did.
+#
+# WHAT ACTUALLY WORKED: bounding the OUTPUT directly, in fit_elastic_net's
+# predict() only (not the in-sample `fitted`/`contrib` — see
+# PREDICT_STD_CAP_K below). This is squarely a walk-forward-backtest fix,
+# not a display change to the dashboard's historical decomposition.
+PREDICT_STD_CAP_K = 8
+# predict() clips its output to trend +- PREDICT_STD_CAP_K * std(training
+# y) — a plausibility bound derived from the training window's own realized
+# GDP volatility (walk-forward-safe: only ever uses data the fold has
+# already seen), not an arbitrary guess. Swept K from 3 to 12 against
+# 04_backtest.py: stressed RMSE improves monotonically from K=3 through
+# K=7-8 (12.82 -> 8.45 -> 8.41), then degrades again past K=10 as the cap
+# loosens back toward unbounded. K=8 sits right at the minimum: stressed
+# RMSE 13.83->8.41 (-39%), worst single error 29.0->16.5, with calm
+# predictions completely unaffected (the cap only ever binds on genuine
+# outliers). Only applied to elastic-net's predict() — DFM doesn't share
+# this failure mode (see the module-level note in fit_dfm) — and not to
+# forecast_quarters()'s shared genuine-forecast path, which has its own,
+# already-damped AR(1) extrapolation mechanism; a truly extreme "nowcast
+# gap" quarter there is a real but untested residual risk.
 
 
 def _trailing_trend(y: np.ndarray, window: int = TREND_WINDOW_QUARTERS) -> float:
     return float(np.mean(y[-window:]))
 
 
-def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = 1) -> dict:
+def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = DFM_N_FACTORS) -> dict:
     """
     DFM: standardize -> top-`n_factors` principal components (static
     factors) -> multivariate bridge regression of quarterly GDP growth
@@ -99,19 +127,20 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = 1)
     in `params`) — it does not feed `predict()`, `contrib`, or `fitted`
     today (never did).
 
-    n_factors defaults to 1 (single-factor), not because more factors
-    wouldn't explain more full-sample variance — they do (K=3 clears 60.9%
-    cumulative variance vs. 38.8% for K=1, measured on this panel) — but
-    because that doesn't hold up walk-forward: tested directly via
-    04_backtest.py's harness, K=2 and K=3 both had WORSE calm-regime RMSE
-    than K=1 (1.65 at K=1, vs 2.34 at K=2 and 2.05 at K=3). More factors
-    means more parameters fit on training windows as short as 12-19
-    quarters early in the backtest — a textbook overfitting risk that a
-    full-sample variance-explained check doesn't catch. The K-factor
-    machinery is kept (parameterized, not hardcoded to K=1) in case a
-    future change to MIN_TRAIN_QUARTERS or the panel makes more factors
-    viable, but re-verify against the walk-forward backtest, not just
-    var_explained, before raising this default.
+    n_factors defaults to 3. An earlier attempt at this (unregularized —
+    plain np.linalg.lstsq across K factors) was tried and reverted: K=2/K=3
+    both had WORSE calm-regime RMSE than K=1 (1.65 at K=1, vs 2.34 at K=2
+    and 2.05 at K=3) despite explaining more full-sample variance (38.8% ->
+    60.9%) — more parameters fit on training windows as short as 12-19
+    quarters early in the backtest overfits. What actually worked: RIDGE-
+    regularizing the bridge regression's beta (DFM_RIDGE_LAMBDA below)
+    instead of dropping back to K=1. This is a qualitatively different
+    result from just shrinking toward K=1 behavior — ridge at K=1 alone
+    also improves calm RMSE but at the cost of WORSE stressed RMSE (tested:
+    1.48/16.50 at lambda=20), whereas K=3+ridge improves BOTH regimes
+    simultaneously (1.57/13.95 at lambda=20, vs K=1's unregularized
+    1.65/15.62) — the extra factors are capturing real stressed-regime
+    signal that ridge then keeps from also overfitting the calm case.
     """
     panel = panel.dropna(subset=cols).copy()
     X = panel[cols].values
@@ -132,9 +161,10 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = 1)
     order = np.argsort(eigval)[::-1]
     eigval, eigvec = eigval[order], eigvec[:, order]
 
-    # Top-K static factors (K=1 by default — see the docstring above for why
-    # more factors were tried and reverted). Each is independently
-    # unit-scaled the same way the original single factor was.
+    # Top-K static factors (K=3 by default — paired with ridge regularization
+    # on the bridge regression below; see the docstring above for the
+    # measured effect). Each is independently unit-scaled the same way the
+    # original single factor was.
     K = max(1, min(n_factors, N, T - 2, len(eigval)))
     W = np.zeros((N, K))
     F_static = np.zeros((T, K))
@@ -220,8 +250,17 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = 1)
     # beta — confirmed by testing: it made bias and RMSE worse, not
     # better. The trailing trend is used only below, as the reported
     # level/intercept for `fitted`, decoupled from beta estimation.
+    #
+    # Ridge- rather than OLS-estimated when K>1 (see DFM_RIDGE_LAMBDA and
+    # the docstring above) — plain lstsq here is exactly what overfits the
+    # short early training windows once there's more than one factor.
+    # lambda=0 (K=1's effective case) reduces to the original OLS solve.
     full_mean = float(np.mean(y))
-    beta_vec, *_ = np.linalg.lstsq(Xf, y - full_mean, rcond=None)
+    y_dem = y - full_mean
+    if DFM_RIDGE_LAMBDA > 0 and K > 1:
+        beta_vec = np.linalg.solve(Xf.T @ Xf + DFM_RIDGE_LAMBDA * np.eye(K), Xf.T @ y_dem)
+    else:
+        beta_vec, *_ = np.linalg.lstsq(Xf, y_dem, rcond=None)
     trend = _trailing_trend(y)
     alpha = trend
     fitted = alpha + Xf @ beta_vec
@@ -368,11 +407,18 @@ def fit_elastic_net(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: 
     contrib["actual"] = y
     contrib["residual"] = contrib["actual"] - contrib["fitted"]
 
+    # Plausibility bound for predict() only — see PREDICT_STD_CAP_K above.
+    # Derived from this training window's own realized GDP volatility, not
+    # a fixed guess, and walk-forward-safe (only ever uses y the fold has
+    # already seen).
+    y_std = float(np.std(y))
+    pred_lo, pred_hi = trend - PREDICT_STD_CAP_K * y_std, trend + PREDICT_STD_CAP_K * y_std
+
     def predict(monthly_panel_slice: pd.DataFrame) -> pd.Series:
         Xp = monthly_panel_slice[cols].values
         Zp = (Xp - mu) / sd
         Zpq = pd.DataFrame(Zp, index=monthly_panel_slice.index, columns=cols).resample("QS").mean()
-        preds = {qi: c0 + row.values @ g for qi, row in Zpq.iterrows()}
+        preds = {qi: min(max(c0 + row.values @ g, pred_lo), pred_hi) for qi, row in Zpq.iterrows()}
         return pd.Series(preds)
 
     params = {

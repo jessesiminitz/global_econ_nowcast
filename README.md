@@ -121,9 +121,16 @@ forecast under an expanding backtest window — see `model_lib.py`'s
 module-level comments for the numbers behind both changes.
 `03_estimate_ml.py` is a challenger: the quarterly-averaged, standardized
 indicator panel plus its top PCA factors, fed into `ElasticNetCV` (shrinkage/
-selection via time-series cross-validation). Both share their core fitting
-logic via `model_lib.py` (`fit_dfm` / `fit_elastic_net`), which is what lets
-`04_backtest.py` refit either model on any training window.
+selection via time-series cross-validation). The regularization strength
+itself is picked by the "1-SE rule" (largest alpha within one standard error
+of the CV-optimal one), not the raw CV-minimizing alpha — measured directly
+via `04_backtest.py`, this cut calm-regime RMSE by ~27% and nearly
+eliminated a -0.27 lag-1 autocorrelation in the walk-forward errors, at the
+cost of a much sparser, more conservative model (most indicators now get
+exactly zero weight — see `model_lib.py`'s module-level comment for the
+full numbers). Both share their core fitting logic via `model_lib.py`
+(`fit_dfm` / `fit_elastic_net`), which is what lets `04_backtest.py` refit
+either model on any training window.
 
 `04_backtest.py` runs a walk-forward comparison: starting from a short
 burn-in period, each subsequent quarter is nowcast by both models using only

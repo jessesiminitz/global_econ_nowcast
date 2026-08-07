@@ -47,20 +47,26 @@ TREND_WINDOW_QUARTERS = 20
 # 3 PCA factors). Measured this session: elastic-net's backtest errors carry
 # a -0.27 lag-1 autocorrelation (vs DFM's -0.04) — a plausible symptom of
 # noisy quarter-to-quarter hyperparameter selection on folds this thin.
-# Below MIN_CV_QUARTERS, skip the inner CV search and use a fixed, modest
-# regularization instead, rather than trusting a search that can't be
-# reliably cross-validated yet. MIN_TRAIN_QUARTERS itself stays untouched in
-# 04_backtest.py — it's deliberately short so backtesting starts before the
-# GFC, a tradeoff worth keeping.
-MIN_CV_QUARTERS = 20
-FALLBACK_ALPHA = 0.01
-FALLBACK_L1_RATIO = 0.5
-# (Measured: this gate leaves the aggregate lag-1 error autocorrelation
-# essentially unchanged, -0.261 vs -0.267 — it only touches ~8 of 73
-# backtest folds, too small a slice to move an aggregate statistic either
-# way. Kept because the underlying reasoning — don't trust a 2-fold,
-# ~6-obs/fold CV search — still holds per-fold; just don't oversell it as a
-# proven aggregate win.)
+#
+# TRIED FIRST AND REPLACED: a hard gate (below some MIN_CV_QUARTERS, skip CV
+# entirely and use a fixed, guessed alpha/l1_ratio). Measured: it left the
+# aggregate lag-1 autocorrelation essentially unchanged (-0.261 vs -0.267) —
+# it only touched ~8 of 73 folds, and the fallback values were arbitrary
+# guesses, not derived from anything.
+#
+# WHAT ACTUALLY WORKED: the standard "1-SE rule" (Hastie/Tibshirani) —
+# instead of taking ElasticNetCV's own argmin-CV-MSE alpha (which is exactly
+# what a noisy 2-fold/~6-obs CV curve is worst at estimating precisely),
+# pick the LARGEST alpha (most regularization, i.e. the simplest model)
+# whose mean CV MSE is still within one standard error of the minimum.
+# Applied to every fold, not just thin ones, since the underlying CV noise
+# problem isn't unique to the earliest folds. Measured on the full 73-quarter
+# backtest: calm RMSE 2.05->1.50, calm bias -0.481->-0.195, lag-1
+# autocorrelation -0.267->-0.035 (matching DFM's own -0.03 to -0.04 baseline)
+# — a real, broad improvement, not just a fix for the diagnosed symptom.
+# Stressed RMSE ticked up slightly (13.29->13.83, n=7, noise-level). Adding
+# the old hard-gate fallback BACK on top of this made things marginally
+# worse across the board (tested), so it's not used alongside this.
 
 # TRIED AND REVERTED: clipping standardized inputs to +-4 before the linear
 # combination, to bound the -52.4%-vs-actual-(-21.3%) 2020-04 prediction.
@@ -310,25 +316,36 @@ def fit_elastic_net(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: 
     pca_scores = pca.fit_transform(Zq.values)
     features = np.hstack([Zq.values, pca_scores])
 
-    if T_train < MIN_CV_QUARTERS:
-        # Too few training quarters for a reliable inner CV search (see
-        # MIN_CV_QUARTERS comment above) — use a fixed, modest
-        # regularization instead of trusting noisy folds to pick one.
-        enet = ElasticNet(alpha=FALLBACK_ALPHA, l1_ratio=FALLBACK_L1_RATIO, max_iter=20000, random_state=random_state)
-        alpha_used, l1_ratio_used = FALLBACK_ALPHA, FALLBACK_L1_RATIO
-    else:
-        n_splits = max(2, min(5, T_train // 8))
-        enet = ElasticNetCV(
-            l1_ratio=[0.1, 0.5, 0.7, 0.9, 0.95, 1.0],
-            cv=TimeSeriesSplit(n_splits=n_splits),
-            max_iter=20000,
-            random_state=random_state,
-        )
-    pipe = Pipeline([("scale", StandardScaler()), ("enet", enet)])
+    n_splits = max(2, min(5, T_train // 8))
+    l1_ratio_grid = [0.1, 0.5, 0.7, 0.9, 0.95, 1.0]
+    cv_pipe = Pipeline([("scale", StandardScaler()), ("enet", ElasticNetCV(
+        l1_ratio=l1_ratio_grid,
+        cv=TimeSeriesSplit(n_splits=n_splits),
+        max_iter=20000,
+        random_state=random_state,
+    ))])
+    cv_pipe.fit(features, y_demeaned)
+    enet_cv = cv_pipe.named_steps["enet"]
+
+    # 1-SE rule: rather than the argmin-CV-MSE alpha (exactly what a noisy
+    # small-sample CV curve estimates worst), pick the LARGEST alpha (most
+    # regularization) whose mean CV MSE is still within one standard error
+    # of the minimum — see the module-level comment above for the measured
+    # effect (this materially reduced both bias and error autocorrelation).
+    l1_idx = l1_ratio_grid.index(enet_cv.l1_ratio_)
+    mse_path = enet_cv.mse_path_[l1_idx]  # n_alphas x n_folds
+    alphas_path = enet_cv.alphas_[l1_idx]
+    mean_mse = mse_path.mean(axis=1)
+    se_mse = mse_path.std(axis=1) / np.sqrt(mse_path.shape[1])
+    best_idx = np.argmin(mean_mse)
+    within_1se = np.where(mean_mse <= mean_mse[best_idx] + se_mse[best_idx])[0]
+    chosen_idx = within_1se[np.argmax(alphas_path[within_1se])]
+    alpha_used, l1_ratio_used = float(alphas_path[chosen_idx]), float(enet_cv.l1_ratio_)
+
+    pipe = Pipeline([("scale", StandardScaler()), ("enet", ElasticNet(
+        alpha=alpha_used, l1_ratio=l1_ratio_used, max_iter=20000, random_state=random_state,
+    ))])
     pipe.fit(features, y_demeaned)
-    if hasattr(pipe.named_steps["enet"], "alpha_"):
-        alpha_used = pipe.named_steps["enet"].alpha_
-        l1_ratio_used = pipe.named_steps["enet"].l1_ratio_
 
     def _predict_from_zq_row(zq_row: np.ndarray) -> float:
         pca_row = pca.transform(zq_row.reshape(1, -1))
@@ -361,7 +378,6 @@ def fit_elastic_net(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: 
     params = {
         "alpha_enet": alpha_used,
         "l1_ratio_enet": l1_ratio_used,
-        "cv_tuned": T_train >= MIN_CV_QUARTERS,
         "n_factors": n_factors_eff,
         "r2": r2,
         "weights": dict(zip(cols, g)),

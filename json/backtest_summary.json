@@ -11,13 +11,13 @@
     "overall_mae": 2.13041207983836
   },
   "elastic_net": {
-    "calm_rmse": 2.0596753388251114,
-    "calm_mae": 1.1484890760516178,
+    "calm_rmse": 1.5024334600870184,
+    "calm_mae": 0.9186910515723411,
     "n_calm": 66,
-    "stressed_rmse": 13.499009499791823,
-    "stressed_mae": 9.071382534809251,
+    "stressed_rmse": 13.833981603048935,
+    "stressed_mae": 9.774934854640255,
     "n_stressed": 7,
-    "overall_rmse": 4.616160011557872,
-    "overall_mae": 1.9082185857955003
+    "overall_rmse": 4.515779859355523,
+    "overall_mae": 1.7679199094007716
   }
 }

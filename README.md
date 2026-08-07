@@ -188,6 +188,41 @@ in a crisis. Both models' regime numbers are always written to
 one wins, so the tradeoff stays visible. `05_export.py` reads the declared
 winner and exports its decomposition to the dashboard (`decomposition_export.json`).
 
+**Is the winner robust, or an artifact of one particular backtest window?**
+Checked directly rather than left as a vague caveat: elastic-net wins under
+every regime configuration tested against the same 73-quarter backtest —
+full data (worst-regime RMSE 8.41 vs DFM's 13.95), with the 3 COVID
+quarters excluded entirely (2.06 vs 4.87), with the 4 GFC quarters excluded
+entirely (12.63 vs 20.56), and calm-only with both stressed windows
+dropped (1.50 vs 1.57 — the closest margin of the four, but ML still
+ahead). The win isn't being carried by one crisis window.
+
+**Splice-point check.** `01_build_panel_real.py` splices two indicators to
+extend their history: PMI (real S&P Global Composite PMI from Haver only
+goes back to 2021, backfilled with a rescaled OECD CLI before that) and
+credit spreads (Bloomberg HY OAS from Haver only goes back to 2012,
+backfilled with FRED's ICE BofA HY OAS before that). Checked both splice
+points for backtest error clustering: the credit splice (2012) shows no
+effect — mean absolute error in the surrounding year is *better* than the
+73-quarter average for both models. The PMI splice (2021) window does show
+elevated error for both models (DFM 2.95 vs 1.88 overall mean-abs-error;
+ML 3.57 vs 1.37), concentrated in the first two quarters after the splice
+date — but that window is also the volatile vaccine-rollout reopening
+period, so this can't be cleanly attributed to the splice discontinuity
+itself versus genuine regime volatility with only 2 quarters of
+splice-adjacent data to go on. No code change from this — noted here as an
+open, unresolved question rather than a fix.
+
+**Ensemble/blend of both models.** Tested directly using the real backtest's
+already-computed out-of-sample predictions (`csv/backtest_report.csv`'s
+`dfm_pred`/`ml_pred` columns), sweeping every weighted blend from pure DFM
+to pure elastic-net: every blend with nonzero DFM weight makes stressed
+RMSE worse than pure elastic-net's 8.41 (e.g. a 50/50 blend: stressed RMSE
+10.74), and the small calm-RMSE gain a blend buys (best case 1.40 vs pure
+ML's 1.50, at roughly 40-50% DFM weight) doesn't offset it under the
+project's own win criterion (minimize the worse of the two regime RMSEs).
+Pure elastic-net dominates every blend tested. No ensemble adopted.
+
 ### Charts
 
 Every chart comes in a full-history version and a version zoomed to 2022

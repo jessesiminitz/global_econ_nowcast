@@ -9,7 +9,8 @@ Run this on a machine with internet access, from the repo root:
 
 ```
 pip install requests pandas numpy scipy scikit-learn openpyxl yfinance matplotlib
-export FRED_API_KEY=your_key_here   # optional but recommended, see below
+echo "HAVER_API_KEY=your_key_here" > .env   # required, see below
+export FRED_API_KEY=your_key_here           # optional, used only as a fallback if Haver is unreachable
 python3 py/01_build_panel_real.py   # csv/panel_monthly.csv + csv/gdp_quarterly.csv
 python3 py/02_estimate_dfm.py       # DFM baseline -> csv/quarterly_decomposition.csv
 python3 py/03_estimate_ml.py        # elastic-net/factor-ML challenger -> csv/quarterly_decomposition_ml.csv
@@ -17,84 +18,95 @@ python3 py/04_backtest.py           # rolling out-of-sample comparison -> json/b
 python3 py/05_export.py             # png/*.png charts + json/decomposition_export.json
 ```
 
-`01_build_panel_real.py` pulls real data with no manual CSV assembly. The
-original 10-indicator core:
+`01_build_panel_real.py` pulls real data with no manual CSV assembly. Haver
+Analytics is the primary source for every indicator (via `py/haver_client.py`,
+a standalone HaverView REST client — see "Haver API key" below); each fetcher
+falls back to the original free source (FRED/yfinance/CPB/OECD/IMF/World Bank)
+if the Haver call fails, so the pipeline still runs without a Haver
+subscription, just on lower-quality proxies. The original 10-indicator core:
 
-| Column | Source | Notes |
-|---|---|---|
-| `oil` | FRED `DCOILBRENTEU` (Brent crude) | no API key needed |
-| `fin` | FRED `NFCI` (Chicago Fed) | sign-flipped so + = easy |
-| `trade`, `ip` | CPB World Trade Monitor, live "latest" release | scrapes the current month's Excel automatically |
-| `pmi` | OECD Composite Leading Indicator | **substitute for the real PMI — see caveat below** |
-| `ai` | Yahoo Finance `^SOX` (semiconductor index), via `yfinance` | optional; skipped gracefully if not installed |
-| `copper` | FRED `PCOPPUSDM` (IMF global copper price) | "Dr. Copper" — global industrial/China demand proxy; YoY % change |
-| `yield_curve` | FRED `T10Y2Y` (10y-2y Treasury spread) | classic leading recession indicator; dropped from the panel (with a warning) if FRED is unreachable — no clean fallback |
-| `usd` | FRED `DTWEXBGS` (broad trade-weighted USD index) | sign-flipped YoY so + = dollar easing (typically supportive of global growth) |
-| `credit` | FRED `BAMLH0A0HYM2` (ICE BofA US HY OAS) | sign-flipped so + = spreads tightening (easy credit); dropped from the panel (with a warning) if FRED is unreachable |
-| GDP target | IMF Quarterly GDP database, World and Country Aggregates (`QGDP_WCA`), via the IMF SDMX 3.0 API | real quarterly, seasonally-adjusted world GDP growth, compounded to an annualized rate; falls back to World Bank `NY.GDP.MKTP.KD.ZG` (annual, interpolated to quarterly) with a warning if the IMF API is unreachable |
+| Column | Haver source | Fallback | Notes |
+|---|---|---|---|
+| `oil` | `PEOBR@WBPRICES` (Brent spot) | FRED `DCOILBRENTEU` / yfinance `BZ=F` | YoY % change |
+| `fin` | `NFCIM1@BCI` (Chicago Fed NFCI) | FRED `NFCI` / yfinance `^VIX` | sign-flipped so + = easy |
+| `trade`, `ip` | `S001IQXM@G10` (world trade volume), `S001XDG@G10` (world IP) | CPB World Trade Monitor scrape | 3-month-annualized growth |
+| `pmi` | `SGBLVPTG@INTSRVYS` — **real S&P Global Composite PMI** | OECD Composite Leading Indicator (rescaled) | used at its natural 50+=expansion scale |
+| `ai` | `SPSOX@DAILY` (Philadelphia Semiconductor Index) | yfinance `^SOX` | YoY % change, z-scored, tanh-compressed |
+| `copper` | `PNMCOP@WBPRICES` (LME copper) | FRED `PCOPPUSDM` / yfinance `HG=F` | "Dr. Copper" — global industrial/China demand proxy; YoY % change |
+| `yield_curve` | `FCM10@USECON` − `FCM2@USECON` (10y-2y spread) | FRED `T10Y2Y` | classic leading recession indicator; dropped from the panel (with a warning) if both are unreachable |
+| `usd` | `FXTWBDI@USECON` (broad trade-weighted USD index) | FRED `DTWEXBGS` / yfinance `DX-Y.NYB` | sign-flipped YoY so + = dollar easing (typically supportive of global growth) |
+| `credit` | `LDCHOA@BONDINDX` (Bloomberg US Corporate HY OAS) | FRED `BAMLH0A0HYM2` (ICE BofA) | sign-flipped so + = spreads tightening (easy credit); dropped from the panel (with a warning) if both are unreachable |
+| GDP target | `S001XGPP@G10` — **World[incl US] Real GDP, PPP-weighted, quarterly** | IMF SDMX `QGDP_WCA`, then World Bank `NY.GDP.MKTP.KD.ZG` (annual, interpolated) | real quarterly, seasonally-adjusted world GDP growth, compounded to an annualized rate |
 
 Plus 12 more indicators added to widen the panel (core activity, financial
 conditions, and a COVID-crisis proxy):
 
-| Column | Source | Notes |
-|---|---|---|
-| `vix` | Yahoo Finance `^VIX` | sign-flipped z-score so + = calm |
-| `equity` | Yahoo Finance `^GSPC` (S&P 500) | YoY % change; US proxy for global equities (global-equity ETFs mostly launched 2008+, which would truncate the panel right before the GFC) |
-| `bank_equity` | Yahoo Finance `^BKX` (KBW Bank Index) | YoY % change — bank-sector health/stress proxy |
-| `lending_standards` | FRED `DRTSCILM` (Fed SLOOS, net % tightening C&I loans) | US-only proxy for the global bank-lending cycle; sign-flipped so + = easing |
-| `em_spread` | Yahoo Finance `EEM` (MSCI Emerging Markets ETF) | YoY % change, EM-risk-appetite proxy standing in for a true EMBI sovereign spread (JPMorgan-licensed, no free feed) |
-| `housing` | FRED `CSUSHPINSA` (Case-Shiller US National) | YoY % change; US proxy for a global housing cycle (no free global BIS aggregate feed) |
-| `leverage` | FRED `CRDQUSAPABIS` (BIS credit-to-GDP for the US, mirrored on FRED) | YoY change in the ratio (pp); US proxy for a global credit/leverage cycle |
-| `jobless_claims` | FRED `ICSA` (US initial claims) | sign-flipped YoY % change so + = claims falling |
-| `retail_sales` | FRED `SLRTTO01OEQ659S` (OECD Total retail trade volume, mirrored on FRED) | 3-month-annualized growth |
-| `consumer_conf` | FRED `CSCICP03O9M665S` (OECD Consumer Confidence, mirrored on FRED) | de-meaned level |
-| `business_conf` | FRED `BSCICP03O9M665S` (OECD Business Confidence, mirrored on FRED) | de-meaned level |
-| `covid_stringency` | Oxford COVID-19 Government Response Tracker (OxCGRT), static historical CSV | sign-flipped so + = less stringent; genuinely 0 outside 2020-2022, not a missing value |
+| Column | Haver source | Fallback | Notes |
+|---|---|---|---|
+| `vix` | `SPVIX@USECON` (CBOE VIX) | yfinance `^VIX` | sign-flipped z-score so + = calm |
+| `equity` | `SP5COM@SPD` (S&P 500 Composite) | yfinance `^GSPC` | YoY % change; US proxy for global equities (global-equity ETFs mostly launched 2008+, which would truncate the panel right before the GFC) |
+| `bank_equity` | `SPKBW@USECON` (KBW Bank Index) | yfinance `^BKX` | YoY % change — bank-sector health/stress proxy |
+| `lending_standards` | `LCIQ157@BCI` (Fed SLOOS, net % tightening C&I loans) | FRED `DRTSCILM` | US-only proxy for the global bank-lending cycle; sign-flipped so + = easing |
+| `em_spread` | `GS@EMBI` — **real JPMorgan EMBI Global sovereign spread (bp)** | yfinance `EEM` (MSCI EM ETF, YoY price return) | YoY change in spread (bp), sign-flipped so + = spreads tightening |
+| `housing` | `CASUSXAM@USECON` (Case-Shiller US National) | FRED `CSUSHPINSA` | YoY % change; US proxy for a global housing cycle (no global aggregate feed exists, even via Haver) |
+| `leverage` | `Q111RCRD@BIS` (US private nonfinancial credit-to-GDP ratio) | FRED `CRDQUSAPABIS` | YoY change in the ratio (pp); US proxy for a global credit/leverage cycle |
+| `jobless_claims` | `LICM@USECON` (US initial claims) | FRED `ICSA` | sign-flipped YoY % change so + = claims falling |
+| `retail_sales` | `C003ROI@OECDMEI` (OECD Total retail trade volume) | FRED `SLRTTO01OEQ659S` (same series, FRED-mirrored) | 3-month-annualized growth |
+| `consumer_conf` | `C003CCE@OECDMEI` (OECD Total Consumer Confidence) | FRED `CSCICP03O9M665S` (same series, FRED-mirrored) | de-meaned level |
+| `business_conf` | `C003BMA@OECDMEI` (OECD Total Mfg Industrial Confidence) | FRED `BSCICP03O9M665S` | de-meaned level; closest OECD Total composite, not identical to FRED's all-sector Business Tendency Survey mirror |
+| `covid_stringency` | *(no Haver equivalent)* | Oxford COVID-19 Government Response Tracker (OxCGRT), static historical CSV | sign-flipped so + = less stringent; genuinely 0 outside 2020-2022, not a missing value |
 
-Two honest caveats, worth reading before you trust the output:
-1. **The real J.P.Morgan/S&P Global Composite PMI is a paid, licensed
-   dataset with no free API.** This script substitutes the OECD's
-   Composite Leading Indicator, a genuinely free and conceptually similar
-   (but numerically different) leading indicator. If you have a Refinitiv/
-   Bloomberg/S&P subscription, swap in the real series.
-2. **Several of the 12 newer indicators are honest US-only proxies for a
-   global concept** (`equity`, `lending_standards`, `housing`, `leverage`,
-   `jobless_claims`) because no clean free global feed exists — the same
-   tradeoff as the PMI substitute above. A handful of items on the original
-   candidate list (freight rates/Baltic Exchange, container throughput,
-   IATA airline data, Google/Apple Mobility, Google Trends, hospitalization
-   data, real EMBI sovereign spreads, Bloomberg's Financial Conditions
-   Index, restaurant/card-spend proxies, IMF BOP capital-flow data) were
-   **not implemented** — they're either paid-vendor-only or their free
-   feeds have been discontinued.
+One honest caveat remains, worth reading before you trust the output:
+**Two indicators are still honest US-only proxies for a global concept**
+(`housing`, `leverage`) because no clean global feed exists — not even via
+Haver (BIS's own global credit-to-GDP and property-price aggregates don't
+come as a single feed). `lending_standards` and `jobless_claims` are also
+US-only, but as US-cycle indicators (labor market, bank lending) that's a
+smaller stretch than for a price index. A handful of items on the original
+candidate list (freight rates/Baltic Exchange, container throughput, IATA
+airline data, Google/Apple Mobility, Google Trends, hospitalization data,
+Bloomberg's Financial Conditions Index, restaurant/card-spend proxies, IMF
+BOP capital-flow data) were **not implemented** — mostly discontinued free
+feeds or concepts with no clean Haver series identified.
 
-If the CPB scraper breaks (their workbook layout can change release to
-release), run `python3 py/01_build_panel_real.py --inspect-cpb` to dump the
-sheet names and a preview of each, then adjust `parse_cpb_trade_and_ip()`.
-The OECD/BIS-derived FRED series above are similarly liable to need a ticker
-adjustment if FRED renames/retires one of them — each fetcher fails
+If a Haver mnemonic is ever retired/renamed, or the CPB scraper breaks
+(their workbook layout can change release to release), each fetcher fails
 gracefully and drops its column (with a printed warning) rather than
 crashing the rest of the pipeline, so a single broken source degrades the
-panel rather than blocking it.
+panel rather than blocking it. Run `python3 py/01_build_panel_real.py
+--inspect-cpb` to dump the CPB workbook's sheet names and a preview of each
+if you need to adjust `parse_cpb_trade_and_ip()`.
 
-### FRED API key (recommended)
+### Haver API key (required)
 
-`fetch_fred_series()` (used by 13 of the 22 indicators, plus the GDP-target
-fallback) defaults to scraping the same unauthenticated CSV endpoint the
-interactive FRED chart uses (`fredgraph.csv`), which has proven prone to
-aggressive rate limiting and timeouts now that this pipeline pulls many more
-FRED series than before. Get a free key at
+`py/haver_client.py` calls Haver Analytics' HaverView REST API
+(`https://api.haverview.com`) directly — a standalone client, not the MCP
+Haver tools (which only exist inside a live Claude Code session). It reads
+`HAVER_API_KEY` from the environment, loaded from a `.env` file in the repo
+root (git-ignored — never commit a key):
+
+```
+echo "HAVER_API_KEY=your_key_here" > .env
+```
+
+Without it, every fetcher in `01_build_panel_real.py` immediately falls back
+to its free-source equivalent (FRED/yfinance/CPB/OECD/IMF) — the pipeline
+still runs, just on the lower-quality proxies documented in the table above.
+
+### FRED API key (optional, fallback only)
+
+`fetch_fred_series()` is now only reached when a Haver call fails. It
+defaults to scraping the same unauthenticated CSV endpoint the interactive
+FRED chart uses (`fredgraph.csv`), which has proven prone to aggressive rate
+limiting and timeouts. Get a free key at
 https://fred.stlouisfed.org/docs/api/api_key.html, then:
 
 ```
 export FRED_API_KEY=your_key_here
 ```
 
-before running `py/01_build_panel_real.py`. With the key set, every FRED fetch
-uses the official authenticated `api.stlouisfed.org/fred/series/observations`
-endpoint instead — same series IDs, just a more reliable transport. Without
-it, the pipeline still runs, just falling back to the old scrape (with a
-startup message saying so).
+to make any fallback FRED call use the official authenticated
+`api.stlouisfed.org/fred/series/observations` endpoint instead.
 
 ## Model comparison: DFM baseline vs. elastic-net/factor-ML challenger
 
@@ -157,6 +169,7 @@ Organized by type — every script resolves these paths relative to its own
 location (`py/paths.py`), regardless of your current directory:
 
 - `py/01_build_panel_real.py` — pulls real live data (run locally, needs internet)
+- `py/haver_client.py` — standalone Haver Analytics (HaverView REST API) client, the primary data source for `01_build_panel_real.py`
 - `py/02_estimate_dfm.py` — DFM baseline (Kalman filter/smoother, bridge regression, decomposition)
 - `py/03_estimate_ml.py` — elastic-net/factor-ML challenger
 - `py/04_backtest.py` — rolling out-of-sample comparison + winner selection

@@ -1,23 +1,23 @@
 {
-  "winner": "dfm",
+  "winner": "elastic_net",
   "dfm": {
-    "calm_rmse": 2.907802131217886,
-    "calm_mae": 1.7263379366267604,
-    "n_calm": 41,
-    "stressed_rmse": 22.970665485042154,
-    "stressed_mae": 20.670628787698,
-    "n_stressed": 3,
-    "overall_rmse": 6.622314654882672,
-    "overall_mae": 3.0179941310179816
+    "calm_rmse": 1.6415120216157746,
+    "calm_mae": 1.2126647092281135,
+    "n_calm": 66,
+    "stressed_rmse": 15.254479473692818,
+    "stressed_mae": 11.052619526633789,
+    "n_stressed": 7,
+    "overall_rmse": 4.974916646128196,
+    "overall_mae": 2.156222020486192
   },
   "elastic_net": {
-    "calm_rmse": 2.8344928942980885,
-    "calm_mae": 1.7550228837425252,
-    "n_calm": 41,
-    "stressed_rmse": 24.95648050438606,
-    "stressed_mae": 23.7682810334519,
-    "n_stressed": 3,
-    "overall_rmse": 7.067669839388184,
-    "overall_mae": 3.255926848495437
+    "calm_rmse": 2.045350938761988,
+    "calm_mae": 1.1269770414381697,
+    "n_calm": 66,
+    "stressed_rmse": 13.286891742368887,
+    "stressed_mae": 8.324519546107156,
+    "n_stressed": 7,
+    "overall_rmse": 4.55092770273324,
+    "overall_mae": 1.8171523501050588
   }
 }

@@ -1,6 +1,6 @@
-alpha_enet=0.006102760170101577
+alpha_enet=0.005419933831622517
 l1_ratio_enet=1.0
 n_factors=3
-r2=0.9542263769464641
-intercept=2.2643700526003947
-weights=pmi:1.0749,trade:1.8267,ip:4.6331,oil:-0.0491,fin:-0.3004,ai:-0.3838,copper:-2.6963,yield_curve:-0.9033,usd:0.4348,vix:2.5011,equity:-1.3413,bank_equity:1.6252,lending_standards:-0.1190,em_spread:0.1745,housing:-0.5876,jobless_claims:-0.1140,covid_stringency:-1.7584
+r2=0.9542880567350721
+intercept=3.5985026234712167
+weights=pmi:-0.1612,trade:0.0347,ip:4.0007,oil:-0.9289,fin:-1.6266,ai:-0.2411,copper:0.2478,yield_curve:-0.1597,usd:0.4008,vix:1.2364,equity:0.4222,bank_equity:-0.2703,lending_standards:0.0983,em_spread:-0.4354,housing:0.3431,jobless_claims:1.5608,retail_sales:2.1926,consumer_conf:-0.4433,business_conf:0.5507,covid_stringency:-0.1297

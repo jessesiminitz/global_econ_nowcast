@@ -1,5 +1,11 @@
 """
 Build panel_monthly.csv and gdp_quarterly.csv from REAL, LIVE data sources.
+
+Haver Analytics (via py/haver_client.py) is the primary source for every
+indicator below - each fetcher tries Haver first and falls back to the
+original FRED/yfinance/CPB/OECD/IMF/World Bank fetcher (unchanged) if the
+Haver call fails, following the same tiered-fallback pattern this file
+already used for FRED-vs-yfinance before Haver was added.
 """
 import io
 import os
@@ -12,6 +18,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+import haver_client
 from paths import CSV
 
 warnings.filterwarnings("ignore")
@@ -25,11 +32,20 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 # scrape below — the latter has been unreliable (aggressive rate limiting /
 # timeouts) for the wider set of series this pipeline now pulls. Get a free
 # key at https://fred.stlouisfed.org/docs/api/api_key.html
+# Only used as a fallback now that Haver is the primary source (see
+# py/haver_client.py / HAVER_API_KEY) for every indicator below.
 FRED_API_KEY = os.environ.get("FRED_API_KEY")
 
 
+def fetch_haver(database: str, series: str) -> pd.Series:
+    """Thin wrapper so every fetcher below has a one-line Haver call to try
+    first, matching the shape of fetch_fred_series()."""
+    return haver_client.get_series(database, series, start_date=FETCH_START_DATE)
+
+
 # =========================================================================
-# 1. FRED (with Yahoo Finance fallback if FRED blocks/times out)
+# 1. FRED (with Yahoo Finance fallback if FRED blocks/times out) — fallback
+#    tier only now; Haver is tried first in every fetcher below.
 # =========================================================================
 def fetch_fred_series(series_id: str) -> pd.Series:
     if FRED_API_KEY:
@@ -65,19 +81,24 @@ def fetch_fred_series(series_id: str) -> pd.Series:
 
 
 def fetch_oil_shock() -> pd.Series:
-    """Brent crude, monthly average, converted to a year-over-year % change."""
+    """Brent crude, monthly average, converted to a year-over-year % change.
+    Haver (PEOBR@WBPRICES) first, FRED/yfinance fallback."""
     try:
-        brent = fetch_fred_series("DCOILBRENTEU")
+        brent = fetch_haver("WBPRICES", "PEOBR")
     except Exception as e:
-        print(f"  [fallback] FRED oil download failed ({e}), pulling Brent oil (BZ=F) via yfinance...")
-        import yfinance as yf
-        df_yf = yf.download("BZ=F", start=FETCH_START_DATE, progress=False)
-        if isinstance(df_yf.columns, pd.MultiIndex):
-            brent = df_yf["Close"]["BZ=F"]
-        else:
-            brent = df_yf["Close"]
-        if isinstance(brent, pd.DataFrame):
-            brent = brent.iloc[:, 0]
+        print(f"  [fallback] Haver oil download failed ({e}), falling back to FRED/yfinance...")
+        try:
+            brent = fetch_fred_series("DCOILBRENTEU")
+        except Exception as e2:
+            print(f"  [fallback] FRED oil download failed ({e2}), pulling Brent oil (BZ=F) via yfinance...")
+            import yfinance as yf
+            df_yf = yf.download("BZ=F", start=FETCH_START_DATE, progress=False)
+            if isinstance(df_yf.columns, pd.MultiIndex):
+                brent = df_yf["Close"]["BZ=F"]
+            else:
+                brent = df_yf["Close"]
+            if isinstance(brent, pd.DataFrame):
+                brent = brent.iloc[:, 0]
 
     monthly = brent.resample("MS").mean()
     yoy = monthly.pct_change(12) * 100
@@ -87,20 +108,24 @@ def fetch_oil_shock() -> pd.Series:
 def fetch_financial_conditions() -> pd.Series:
     """
     NFCI is weekly, positive = TIGHT, negative = LOOSE.
-    If FRED times out, fallback to ^VIX from Yahoo Finance.
+    Haver (NFCIM1@BCI) first, FRED/^VIX fallback.
     """
     try:
-        nfci = fetch_fred_series("NFCI")
+        nfci = fetch_haver("BCI", "NFCIM1")
     except Exception as e:
-        print(f"  [fallback] FRED NFCI download failed ({e}), pulling ^VIX via yfinance...")
-        import yfinance as yf
-        df_yf = yf.download("^VIX", start=FETCH_START_DATE, progress=False)
-        if isinstance(df_yf.columns, pd.MultiIndex):
-            nfci = df_yf["Close"]["^VIX"]
-        else:
-            nfci = df_yf["Close"]
-        if isinstance(nfci, pd.DataFrame):
-            nfci = nfci.iloc[:, 0]
+        print(f"  [fallback] Haver NFCI download failed ({e}), falling back to FRED/yfinance...")
+        try:
+            nfci = fetch_fred_series("NFCI")
+        except Exception as e2:
+            print(f"  [fallback] FRED NFCI download failed ({e2}), pulling ^VIX via yfinance...")
+            import yfinance as yf
+            df_yf = yf.download("^VIX", start=FETCH_START_DATE, progress=False)
+            if isinstance(df_yf.columns, pd.MultiIndex):
+                nfci = df_yf["Close"]["^VIX"]
+            else:
+                nfci = df_yf["Close"]
+            if isinstance(nfci, pd.DataFrame):
+                nfci = nfci.iloc[:, 0]
 
     monthly = nfci.resample("MS").mean()
     score = -monthly / monthly.std() * 1.0  # sign-flipped z-score
@@ -109,26 +134,31 @@ def fetch_financial_conditions() -> pd.Series:
 
 def fetch_copper() -> pd.Series:
     """
-    "Dr. Copper" — IMF Global Price of Copper (FRED PCOPPUSDM, USD/metric ton,
+    "Dr. Copper" — LME copper price (Haver PNMCOP@WBPRICES, USD/metric ton,
     monthly), converted to year-over-year % change. Widely used as a leading
     proxy for global industrial demand (China construction/manufacturing in
-    particular). Falls back to CME copper futures (HG=F) via yfinance if
-    FRED is unreachable.
+    particular). Falls back to FRED's IMF-mirrored copper series, then CME
+    copper futures (HG=F) via yfinance.
     """
     try:
-        level = fetch_fred_series("PCOPPUSDM")
+        level = fetch_haver("WBPRICES", "PNMCOP")
         monthly = level.resample("MS").mean()
     except Exception as e:
-        print(f"  [fallback] FRED copper download failed ({e}), pulling HG=F via yfinance...")
-        import yfinance as yf
-        df_yf = yf.download("HG=F", start=FETCH_START_DATE, progress=False)
-        if isinstance(df_yf.columns, pd.MultiIndex):
-            px = df_yf["Close"]["HG=F"]
-        else:
-            px = df_yf["Close"]
-        if isinstance(px, pd.DataFrame):
-            px = px.iloc[:, 0]
-        monthly = px.resample("MS").mean()
+        print(f"  [fallback] Haver copper download failed ({e}), falling back to FRED/yfinance...")
+        try:
+            level = fetch_fred_series("PCOPPUSDM")
+            monthly = level.resample("MS").mean()
+        except Exception as e2:
+            print(f"  [fallback] FRED copper download failed ({e2}), pulling HG=F via yfinance...")
+            import yfinance as yf
+            df_yf = yf.download("HG=F", start=FETCH_START_DATE, progress=False)
+            if isinstance(df_yf.columns, pd.MultiIndex):
+                px = df_yf["Close"]["HG=F"]
+            else:
+                px = df_yf["Close"]
+            if isinstance(px, pd.DataFrame):
+                px = px.iloc[:, 0]
+            monthly = px.resample("MS").mean()
 
     yoy = monthly.pct_change(12) * 100
     return yoy.rename("copper")
@@ -136,17 +166,23 @@ def fetch_copper() -> pd.Series:
 
 def fetch_yield_curve() -> pd.Series:
     """
-    10y-2y Treasury term spread (FRED T10Y2Y), daily, resampled to monthly
-    mean. A classic leading recession indicator (inversions have preceded
-    every US recession since the 1970s with a ~12-18 month lead). No clean
-    non-FRED fallback exists for the 2y leg, so this indicator is skipped
-    (with a warning) rather than substituted if FRED is unreachable.
+    10y-2y Treasury term spread, daily, resampled to monthly mean. A classic
+    leading recession indicator (inversions have preceded every US recession
+    since the 1970s with a ~12-18 month lead). Haver (FCM10/FCM2@USECON,
+    computed as a spread) first, FRED T10Y2Y fallback; skipped (with a
+    warning) if both fail, since no other clean fallback exists.
     """
     try:
-        spread = fetch_fred_series("T10Y2Y")
+        y10 = fetch_haver("USECON", "FCM10")
+        y2 = fetch_haver("USECON", "FCM2")
+        spread = (y10 - y2).dropna()
     except Exception as e:
-        print(f"  [skip] FRED yield curve download failed ({e}), dropping 'yield_curve' from the panel.")
-        return None
+        print(f"  [fallback] Haver yield curve download failed ({e}), falling back to FRED...")
+        try:
+            spread = fetch_fred_series("T10Y2Y")
+        except Exception as e2:
+            print(f"  [skip] FRED yield curve download failed ({e2}), dropping 'yield_curve' from the panel.")
+            return None
 
     monthly = spread.resample("MS").mean()
     return monthly.rename("yield_curve")
@@ -154,27 +190,32 @@ def fetch_yield_curve() -> pd.Series:
 
 def fetch_dollar_index() -> pd.Series:
     """
-    Fed broad trade-weighted USD index (FRED DTWEXBGS), year-over-year %
-    change, sign-flipped so + = dollar EASING. A strengthening dollar
-    tightens financial conditions for EM/dollar-debt borrowers and is
-    historically a headwind for global growth, hence the flip (consistent
-    with the sign convention used for `fin`). Falls back to ICE USD index
-    futures (DX-Y.NYB) via yfinance if FRED is unreachable.
+    Broad trade-weighted USD index, year-over-year % change, sign-flipped so
+    + = dollar EASING. A strengthening dollar tightens financial conditions
+    for EM/dollar-debt borrowers and is historically a headwind for global
+    growth, hence the flip (consistent with the sign convention used for
+    `fin`). Haver (FXTWBDI@USECON — the same Fed series FRED's DTWEXBGS
+    mirrors) first, FRED/yfinance fallback.
     """
     try:
-        level = fetch_fred_series("DTWEXBGS")
+        level = fetch_haver("USECON", "FXTWBDI")
         monthly = level.resample("MS").mean()
     except Exception as e:
-        print(f"  [fallback] FRED dollar index download failed ({e}), pulling DX-Y.NYB via yfinance...")
-        import yfinance as yf
-        df_yf = yf.download("DX-Y.NYB", start=FETCH_START_DATE, progress=False)
-        if isinstance(df_yf.columns, pd.MultiIndex):
-            px = df_yf["Close"]["DX-Y.NYB"]
-        else:
-            px = df_yf["Close"]
-        if isinstance(px, pd.DataFrame):
-            px = px.iloc[:, 0]
-        monthly = px.resample("MS").mean()
+        print(f"  [fallback] Haver dollar index download failed ({e}), falling back to FRED/yfinance...")
+        try:
+            level = fetch_fred_series("DTWEXBGS")
+            monthly = level.resample("MS").mean()
+        except Exception as e2:
+            print(f"  [fallback] FRED dollar index download failed ({e2}), pulling DX-Y.NYB via yfinance...")
+            import yfinance as yf
+            df_yf = yf.download("DX-Y.NYB", start=FETCH_START_DATE, progress=False)
+            if isinstance(df_yf.columns, pd.MultiIndex):
+                px = df_yf["Close"]["DX-Y.NYB"]
+            else:
+                px = df_yf["Close"]
+            if isinstance(px, pd.DataFrame):
+                px = px.iloc[:, 0]
+            monthly = px.resample("MS").mean()
 
     yoy = monthly.pct_change(12) * 100
     return (-yoy).rename("usd")
@@ -182,40 +223,69 @@ def fetch_dollar_index() -> pd.Series:
 
 def fetch_credit_spread() -> pd.Series:
     """
-    ICE BofA US High Yield Index option-adjusted spread (FRED
-    BAMLH0A0HYM2), daily, resampled to monthly mean and sign-flipped so
-    + = spreads TIGHTENING (easy credit) — same convention as `fin`. Captures
-    corporate credit-market stress more directly than NFCI. No clean
-    non-FRED fallback exists, so this indicator is skipped (with a warning)
-    if FRED is unreachable.
+    US High Yield option-adjusted spread, sign-flipped so + = spreads
+    TIGHTENING (easy credit) — same convention as `fin`. Captures
+    corporate credit-market stress more directly than NFCI.
+
+    Haver's Bloomberg US Corporate HY OAS (LDCHOA@BONDINDX) only has history
+    back to 2012 — spliced with FRED's longer ICE BofA HY OAS
+    (BAMLH0A0HYM2) for everything before that, so the panel doesn't lose
+    2005-2012 history. The two vendor indices aren't identical, so there's a
+    methodology discontinuity at the splice point — accepted tradeoff to
+    keep the column's full history rather than dropping it or truncating
+    the whole panel to 2012+.
     """
     try:
-        spread = fetch_fred_series("BAMLH0A0HYM2")
+        haver_spread = fetch_haver("BONDINDX", "LDCHOA")
     except Exception as e:
-        print(f"  [skip] FRED credit spread download failed ({e}), dropping 'credit' from the panel.")
-        return None
+        print(f"  [fallback] Haver credit spread download failed ({e}), falling back to FRED...")
+        try:
+            spread = fetch_fred_series("BAMLH0A0HYM2")
+        except Exception as e2:
+            print(f"  [skip] FRED credit spread download failed ({e2}), dropping 'credit' from the panel.")
+            return None
+        monthly = spread.resample("MS").mean()
+        return (-monthly).rename("credit")
 
-    monthly = spread.resample("MS").mean()
-    return (-monthly).rename("credit")
+    haver_monthly = haver_spread.resample("MS").mean()
+    haver_start = haver_monthly.index.min()
+    try:
+        fred_monthly = fetch_fred_series("BAMLH0A0HYM2").resample("MS").mean()
+    except Exception as e:
+        print(f"  [warn] FRED HY OAS fetch failed ({e}) — using Haver credit spread alone "
+              f"(history starts {haver_start.date()}, no pre-2012 splice).")
+        return (-haver_monthly).rename("credit")
+
+    if fred_monthly.index.min() < haver_start:
+        print(f"  Splicing credit spread: FRED/ICE BofA HY OAS before {haver_start.date()}, "
+              f"Bloomberg HY OAS (Haver) from {haver_start.date()} onward.")
+        combined = pd.concat([fred_monthly[fred_monthly.index < haver_start], haver_monthly]).sort_index()
+        return (-combined).rename("credit")
+    return (-haver_monthly).rename("credit")
 
 
 # =========================================================================
 # 1b. Additional financial-conditions block (VIX, equities, bank equities,
-#     lending standards, EM spread proxy, housing, leverage) — all via FRED
-#     or yfinance, reusing the fetch_fred_series/yfinance fallback machinery
-#     above rather than introducing a new data-source client.
+#     lending standards, EM spread, housing, leverage) — Haver primary,
+#     FRED/yfinance fallback.
 # =========================================================================
 def fetch_vix() -> pd.Series:
     """Cboe VIX, monthly average, sign-flipped z-score so + = calm (low vol),
-    consistent with the fin/usd/credit sign convention."""
-    import yfinance as yf
-    df_yf = yf.download("^VIX", start=FETCH_START_DATE, progress=False)
-    if isinstance(df_yf.columns, pd.MultiIndex):
-        px = df_yf["Close"]["^VIX"]
-    else:
-        px = df_yf["Close"]
-    if isinstance(px, pd.DataFrame):
-        px = px.iloc[:, 0]
+    consistent with the fin/usd/credit sign convention. Haver
+    (SPVIX@USECON) first, yfinance ^VIX fallback."""
+    try:
+        px = fetch_haver("USECON", "SPVIX")
+    except Exception as e:
+        print(f"  [fallback] Haver VIX download failed ({e}), falling back to yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("^VIX", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["^VIX"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
+
     monthly = px.resample("MS").mean()
     z = (monthly - monthly.mean()) / monthly.std()
     return (-z).rename("vix")
@@ -223,36 +293,49 @@ def fetch_vix() -> pd.Series:
 
 def fetch_equity() -> pd.Series:
     """
-    S&P 500 (^GSPC), YoY % change — used in preference to a global ETF
+    S&P 500 Composite, YoY % change — used in preference to a global ETF
     (e.g. ACWI) because global-equity ETFs mostly launched in 2008+ and
-    would truncate the panel's usable history right before the GFC; ^GSPC
-    has decades of history and is highly correlated with global equity
-    cycles anyway. US proxy for global equity performance.
+    would truncate the panel's usable history right before the GFC; the
+    S&P 500 has decades of history and is highly correlated with global
+    equity cycles anyway. US proxy for global equity performance. Haver
+    (SP5COM@SPD, the real index) first, yfinance ^GSPC fallback.
     """
-    import yfinance as yf
-    df_yf = yf.download("^GSPC", start=FETCH_START_DATE, progress=False)
-    if isinstance(df_yf.columns, pd.MultiIndex):
-        px = df_yf["Close"]["^GSPC"]
-    else:
-        px = df_yf["Close"]
-    if isinstance(px, pd.DataFrame):
-        px = px.iloc[:, 0]
+    try:
+        px = fetch_haver("SPD", "SP5COM")
+    except Exception as e:
+        print(f"  [fallback] Haver S&P 500 download failed ({e}), falling back to yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("^GSPC", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["^GSPC"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
+
     monthly = px.resample("MS").last()
     yoy = monthly.pct_change(12) * 100
     return yoy.rename("equity")
 
 
 def fetch_bank_equity() -> pd.Series:
-    """KBW Nasdaq Bank Index (^BKX), YoY % change — global banking-sector
-    health proxy (a common leading indicator of financial-system stress)."""
-    import yfinance as yf
-    df_yf = yf.download("^BKX", start=FETCH_START_DATE, progress=False)
-    if isinstance(df_yf.columns, pd.MultiIndex):
-        px = df_yf["Close"]["^BKX"]
-    else:
-        px = df_yf["Close"]
-    if isinstance(px, pd.DataFrame):
-        px = px.iloc[:, 0]
+    """KBW Bank Index, YoY % change — global banking-sector health proxy (a
+    common leading indicator of financial-system stress). Haver
+    (SPKBW@USECON, the same index Yahoo's ^BKX mirrors) first, yfinance
+    fallback."""
+    try:
+        px = fetch_haver("USECON", "SPKBW")
+    except Exception as e:
+        print(f"  [fallback] Haver KBW bank index download failed ({e}), falling back to yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("^BKX", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["^BKX"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
+
     monthly = px.resample("MS").last()
     yoy = monthly.pct_change(12) * 100
     return yoy.rename("bank_equity")
@@ -260,48 +343,66 @@ def fetch_bank_equity() -> pd.Series:
 
 def fetch_lending_standards() -> pd.Series:
     """
-    Fed Senior Loan Officer Opinion Survey (FRED DRTSCILM): net % of banks
-    tightening C&I loan standards, quarterly. Sign-flipped so + = easing
-    (consistent with fin/usd/credit), resampled to monthly via forward-fill.
-    US-only (no clean global SLOOS equivalent), used as a bank-lending-cycle
-    proxy — the same honest US-proxy tradeoff as `jobless_claims`/`housing` below.
+    Fed Senior Loan Officer Opinion Survey (Haver LCIQ157@BCI — the same
+    survey FRED's DRTSCILM mirrors): net % of banks tightening C&I loan
+    standards, quarterly. Sign-flipped so + = easing (consistent with
+    fin/usd/credit), resampled to monthly via forward-fill. US-only (no
+    clean global SLOOS equivalent), used as a bank-lending-cycle proxy — the
+    same honest US-proxy tradeoff as `jobless_claims`/`housing` below.
     """
-    q = fetch_fred_series("DRTSCILM")
+    try:
+        q = fetch_haver("BCI", "LCIQ157")
+    except Exception as e:
+        print(f"  [fallback] Haver SLOOS download failed ({e}), falling back to FRED...")
+        q = fetch_fred_series("DRTSCILM")
+
     monthly = (-q).resample("MS").ffill()
     return monthly.rename("lending_standards")
 
 
 def fetch_em_spread() -> pd.Series:
     """
-    iShares MSCI Emerging Markets ETF (EEM), YoY % change, used as an
-    EM/sovereign-stress proxy (no free live EMBI feed exists — real EMBI is a
-    JPMorgan-licensed product; EEM is used in preference to the more literal
-    EM-bond ETF EMB because EMB only launched in Dec 2007, which would
-    truncate the panel's usable history right before the GFC). Positive = EM
-    risk appetite rising = spreads tightening = easy conditions, consistent
-    with the `credit` sign convention.
+    EMBI Global sovereign spread (Haver GS@EMBI) — the real JPMorgan EMBI
+    Global index, in basis points. Year-over-year change in the spread,
+    sign-flipped so + = spreads TIGHTENING (easy EM conditions), same
+    convention as `credit`. This closes what was previously an honest gap:
+    real EMBI is a JPMorgan-licensed product with no free feed, so this
+    indicator used to be proxied by the iShares MSCI EM ETF (EEM)'s YoY
+    price return instead — that proxy is now the fallback only.
     """
-    import yfinance as yf
-    df_yf = yf.download("EEM", start=FETCH_START_DATE, progress=False)
-    if isinstance(df_yf.columns, pd.MultiIndex):
-        px = df_yf["Close"]["EEM"]
-    else:
-        px = df_yf["Close"]
-    if isinstance(px, pd.DataFrame):
-        px = px.iloc[:, 0]
-    monthly = px.resample("MS").last()
-    yoy = monthly.pct_change(12) * 100
-    return yoy.rename("em_spread")
+    try:
+        spread = fetch_haver("EMBI", "GS")
+        monthly = spread.resample("MS").mean()
+        yoy_change = monthly.diff(12)
+        return (-yoy_change).rename("em_spread")
+    except Exception as e:
+        print(f"  [fallback] Haver EMBI download failed ({e}), falling back to EEM ETF proxy via yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("EEM", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["EEM"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
+        monthly = px.resample("MS").last()
+        yoy = monthly.pct_change(12) * 100
+        return yoy.rename("em_spread")
 
 
 def fetch_housing() -> pd.Series:
     """
-    S&P/Case-Shiller US National Home Price Index (FRED CSUSHPINSA), YoY %
-    change. US-only proxy standing in for a global housing-price cycle (a
-    genuine BIS global property-price aggregate has no simple free API) —
-    same honest-caveat tradeoff as the PMI substitute.
+    S&P/Case-Shiller US National Home Price Index (Haver CASUSXAM@USECON),
+    YoY % change. US-only proxy standing in for a global housing-price cycle
+    — a genuine global property-price aggregate doesn't exist even via
+    Haver, same honest-caveat tradeoff as before. FRED fallback.
     """
-    level = fetch_fred_series("CSUSHPINSA")
+    try:
+        level = fetch_haver("USECON", "CASUSXAM")
+    except Exception as e:
+        print(f"  [fallback] Haver Case-Shiller download failed ({e}), falling back to FRED...")
+        level = fetch_fred_series("CSUSHPINSA")
+
     monthly = level.resample("MS").mean()
     yoy = monthly.pct_change(12) * 100
     return yoy.rename("housing")
@@ -310,12 +411,17 @@ def fetch_housing() -> pd.Series:
 def fetch_leverage() -> pd.Series:
     """
     BIS "Total Credit to Private Non-Financial Sector" for the US, as a % of
-    GDP, mirrored on FRED (CRDQUSAPABIS), YoY change in the ratio (pp).
-    US-only proxy for a global credit/leverage cycle — BIS's own global
-    credit-to-GDP-gap dataset has no simple free REST API, so this uses the
-    FRED mirror of BIS's underlying series instead.
+    GDP (Haver Q111RCRD@BIS — real BIS data, rather than the FRED mirror
+    used previously), YoY change in the ratio (pp). US-only proxy for a
+    global credit/leverage cycle — BIS's own global credit-to-GDP dataset
+    has no single aggregate feed, so this stays a US proxy either way.
     """
-    q = fetch_fred_series("CRDQUSAPABIS")
+    try:
+        q = fetch_haver("BIS", "Q111RCRD")
+    except Exception as e:
+        print(f"  [fallback] Haver BIS credit-to-GDP download failed ({e}), falling back to FRED...")
+        q = fetch_fred_series("CRDQUSAPABIS")
+
     monthly = q.resample("MS").ffill()
     yoy = monthly.diff(12)
     return yoy.rename("leverage")
@@ -323,11 +429,17 @@ def fetch_leverage() -> pd.Series:
 
 def fetch_jobless_claims() -> pd.Series:
     """
-    US initial jobless claims (FRED ICSA), weekly, resampled to monthly mean
-    and sign-flipped (YoY % change, negated) so + = claims falling = labor
-    market improving. US-only proxy for global labor-market stress.
+    US initial jobless claims (Haver LICM@USECON — the same series FRED's
+    ICSA mirrors), weekly, resampled to monthly mean and sign-flipped (YoY %
+    change, negated) so + = claims falling = labor market improving. US-only
+    proxy for global labor-market stress.
     """
-    weekly = fetch_fred_series("ICSA")
+    try:
+        weekly = fetch_haver("USECON", "LICM")
+    except Exception as e:
+        print(f"  [fallback] Haver jobless claims download failed ({e}), falling back to FRED...")
+        weekly = fetch_fred_series("ICSA")
+
     monthly = weekly.resample("MS").mean()
     yoy = monthly.pct_change(12) * 100
     return (-yoy).rename("jobless_claims")
@@ -335,38 +447,55 @@ def fetch_jobless_claims() -> pd.Series:
 
 # =========================================================================
 # 1c. OECD-sourced block (retail sales, consumer/business confidence) —
-#     mirrored onto FRED under OECD's MEI naming convention, reusing
-#     fetch_fred_series rather than a new SDMX client. (No harmonized
-#     unemployment series here — OECD doesn't publish a clean aggregate for
-#     it, unlike the CLI/CCI/BCI composites below.)
+#     Haver pulls these directly from OECD (C0*@OECDMEI), rather than via a
+#     FRED mirror of the same underlying OECD MEI series.
 # =========================================================================
 def fetch_retail_sales() -> pd.Series:
-    """OECD Total retail trade volume index (FRED-mirrored OECD MEI series),
+    """OECD Total retail trade volume index (Haver C003ROI@OECDMEI),
     3-month-annualized growth (matching the trade/ip transform convention)."""
-    level = fetch_fred_series("SLRTTO01OEQ659S")
+    try:
+        level = fetch_haver("OECDMEI", "C003ROI")
+    except Exception as e:
+        print(f"  [fallback] Haver OECD retail sales download failed ({e}), falling back to FRED...")
+        level = fetch_fred_series("SLRTTO01OEQ659S")
+
     monthly = level.resample("MS").ffill()
     g = (monthly / monthly.shift(3)) ** 4 - 1
     return (g * 100).rename("retail_sales")
 
 
 def fetch_consumer_confidence() -> pd.Series:
-    """OECD Consumer Confidence Indicator, composite (FRED-mirrored OECD MEI
-    series), de-meaned so 0 = long-run-average confidence."""
-    level = fetch_fred_series("CSCICP03O9M665S")
+    """OECD Total Consumer Confidence Indicator, amplitude-adjusted (Haver
+    C003CCE@OECDMEI), de-meaned so 0 = long-run-average confidence."""
+    try:
+        level = fetch_haver("OECDMEI", "C003CCE")
+    except Exception as e:
+        print(f"  [fallback] Haver OECD consumer confidence download failed ({e}), falling back to FRED...")
+        level = fetch_fred_series("CSCICP03O9M665S")
+
     monthly = level.resample("MS").mean()
     return (monthly - monthly.mean()).rename("consumer_conf")
 
 
 def fetch_business_confidence() -> pd.Series:
-    """OECD Business Tendency Survey, composite confidence indicator
-    (FRED-mirrored OECD MEI series), de-meaned so 0 = long-run average."""
-    level = fetch_fred_series("BSCICP03O9M665S")
+    """OECD Total Manufacturing Industrial Confidence Indicator,
+    amplitude-adjusted (Haver C003BMA@OECDMEI) — the closest OECD Total
+    composite available; not identical to the all-sector Business Tendency
+    Survey composite FRED's BSCICP03O9M665S mirrored, but the same concept
+    (economy-wide business sentiment). De-meaned so 0 = long-run average."""
+    try:
+        level = fetch_haver("OECDMEI", "C003BMA")
+    except Exception as e:
+        print(f"  [fallback] Haver OECD business confidence download failed ({e}), falling back to FRED...")
+        level = fetch_fred_series("BSCICP03O9M665S")
+
     monthly = level.resample("MS").mean()
     return (monthly - monthly.mean()).rename("business_conf")
 
 
 # =========================================================================
 # 1d. COVID stringency index — Oxford COVID-19 Government Response Tracker
+#     (no Haver equivalent exists; unchanged)
 # =========================================================================
 def fetch_covid_stringency() -> pd.Series:
     """
@@ -395,7 +524,9 @@ def fetch_covid_stringency() -> pd.Series:
 
 
 # =========================================================================
-# 2. CPB World Trade Monitor — world trade volume + industrial production
+# 2. World trade + industrial production — Haver primary (S001IQXM/S001XDG
+#    @G10), CPB World Trade Monitor scrape as last-ditch fallback if BOTH
+#    Haver calls fail.
 # =========================================================================
 def fetch_cpb_world_trade_monitor():
     landing = "https://www.cpb.nl/en/worldtrademonitor/latest"
@@ -482,8 +613,34 @@ def parse_cpb_trade_and_ip(xls: pd.ExcelFile):
     return to_3mo_annualized(trade_level).rename("trade"), to_3mo_annualized(ip_level).rename("ip")
 
 
+def _to_3mo_annualized(level: pd.Series) -> pd.Series:
+    level = level.sort_index()
+    g = (level / level.shift(3)) ** 4 - 1
+    return g * 100
+
+
+def fetch_trade_and_ip():
+    """World trade volume (S001IQXM@G10) and world industrial production
+    (S001XDG@G10, World[incl US], World Trade Weight), both monthly SA
+    indexes, converted to 3-month-annualized growth. Replaces the CPB World
+    Trade Monitor Excel scrape as the primary source — CPB stays as a
+    last-ditch fallback only if BOTH Haver calls fail, since it's the only
+    other source that provides both series together."""
+    try:
+        trade_level = fetch_haver("G10", "S001IQXM")
+        ip_level = fetch_haver("G10", "S001XDG")
+        return _to_3mo_annualized(trade_level).rename("trade"), _to_3mo_annualized(ip_level).rename("ip")
+    except Exception as e:
+        print(f"  [fallback] Haver world trade/IP download failed ({e}), falling back to CPB World Trade Monitor scrape...")
+        xls, xlsx_url = fetch_cpb_world_trade_monitor()
+        return parse_cpb_trade_and_ip(xls)
+
+
 # =========================================================================
-# 3. OECD Composite Leading Indicator — free PMI substitute
+# 3. Global Composite PMI — real S&P Global data via Haver
+#    (SGBLVPTG@INTSRVYS), OECD Composite Leading Indicator as fallback
+#    substitute if Haver is unreachable (same free-PMI-substitute caveat
+#    this file used to carry as its primary approach).
 # =========================================================================
 def fetch_pmi_proxy() -> pd.Series:
     url = (
@@ -513,11 +670,49 @@ def fetch_pmi_proxy() -> pd.Series:
     s = s[s.index.notna()].dropna().sort_index()
 
     rescaled = 50 + (s - 100) * 2.5
-    return rescaled.resample("MS").mean().rename("pmi_proxy_oecd_cli")
+    return rescaled.resample("MS").mean().rename("pmi")
+
+
+def fetch_pmi() -> pd.Series:
+    """Global Composite PMI — the real, licensed S&P Global Composite PMI
+    (Haver SGBLVPTG@INTSRVYS), used directly at its natural 50+=expansion
+    scale (no rescaling needed, unlike the OECD CLI substitute below).
+
+    Haver's real PMI only has history back to 2021 — spliced with the OECD
+    Composite Leading Indicator (rescaled to a PMI-like range) for
+    everything before that, so the panel doesn't lose 2005-2021 history.
+    This is the single largest-weighted indicator in the DFM, so dropping
+    it (rather than splicing) would be a real regression, not just a
+    quality tradeoff. The rescaled OECD CLI and the real PMI are different
+    concepts at different scales, so there's a methodology discontinuity at
+    the splice point — accepted tradeoff to keep the column's full history.
+    """
+    try:
+        haver_pmi = fetch_haver("INTSRVYS", "SGBLVPTG").resample("MS").mean()
+    except Exception as e:
+        print(f"  [fallback] Haver Global Composite PMI download failed ({e}), falling back to OECD CLI substitute...")
+        return fetch_pmi_proxy()
+
+    haver_start = haver_pmi.index.min()
+    try:
+        proxy = fetch_pmi_proxy()
+    except Exception as e:
+        print(f"  [warn] OECD CLI PMI proxy fetch failed ({e}) — using real PMI alone "
+              f"(history starts {haver_start.date()}, no pre-2021 splice).")
+        return haver_pmi.rename("pmi")
+
+    if proxy.index.min() < haver_start:
+        print(f"  Splicing PMI: OECD CLI substitute before {haver_start.date()}, "
+              f"real S&P Global Composite PMI (Haver) from {haver_start.date()} onward.")
+        combined = pd.concat([proxy[proxy.index < haver_start], haver_pmi]).sort_index()
+        return combined.rename("pmi")
+    return haver_pmi.rename("pmi")
 
 
 # =========================================================================
-# 4. IMF Quarterly GDP database — world real GDP growth (quarterly)
+# 4. World real GDP growth (quarterly) — Haver primary
+#    (S001XGPP@G10, World[incl US] Real GDP, PPP-weighted), IMF
+#    SDMX/World Bank chain as fallback.
 # =========================================================================
 def _parse_sdmx_quarter(raw) -> "pd.Timestamp | None":
     """Parse a TIME_PERIOD value like '2024-Q1' or '2024Q1' into a quarter-start Timestamp."""
@@ -666,19 +861,48 @@ def get_quarterly_gdp_target(annual_gdp: pd.Series) -> pd.Series:
     return smoothed.resample("QS").mean().rename("gdp_growth_saar")
 
 
+def fetch_gdp_target() -> pd.Series:
+    """World[incl US] Real GDP, PPP-weighted (Haver S001XGPP@G10) —
+    genuinely quarterly, seasonally adjusted, real, global (not just OECD)
+    GDP index. Converted to quarter-on-quarter annualized growth the same
+    way fetch_imf_quarterly_gdp() does. Falls back to the IMF SDMX
+    QGDP_WCA fetch, then World Bank annual GDP (interpolated to quarterly),
+    if Haver is unreachable — that ~150-line fallback chain is kept as-is
+    rather than deleted, since it's tested and working."""
+    try:
+        level = fetch_haver("G10", "S001XGPP")
+        quarterly = level.resample("QS").mean()
+        qoq = quarterly.pct_change()
+        saar = ((1 + qoq) ** 4 - 1) * 100
+        return saar.dropna().rename("gdp_growth_saar")
+    except Exception as e:
+        print(f"  [fallback] Haver world GDP download failed ({e}), falling back to IMF quarterly GDP (QGDP_WCA)...")
+        try:
+            return fetch_imf_quarterly_gdp()
+        except Exception as e2:
+            print(f"  [fallback] IMF quarterly GDP fetch failed ({e2}), falling back to World Bank annual GDP (interpolated to quarterly)...")
+            gdp_annual = fetch_world_bank_annual_gdp_growth()
+            return get_quarterly_gdp_target(gdp_annual)
+
+
 # =========================================================================
-# 5. AI / tech capex proxy — Yahoo Finance via yfinance
+# 5. AI / tech capex proxy — Philadelphia Semiconductor Index
 # =========================================================================
 def fetch_ai_tech_proxy() -> pd.Series:
-    import yfinance as yf
-
-    df_yf = yf.download("^SOX", start=FETCH_START_DATE, progress=False)
-    if isinstance(df_yf.columns, pd.MultiIndex):
-        px = df_yf["Close"]["^SOX"]
-    else:
-        px = df_yf["Close"]
-    if isinstance(px, pd.DataFrame):
-        px = px.iloc[:, 0]
+    """Philadelphia Semiconductor Index — Haver (SPSOX@DAILY) is the same
+    index Yahoo's ^SOX mirrors; yfinance is the fallback."""
+    try:
+        px = fetch_haver("DAILY", "SPSOX")
+    except Exception as e:
+        print(f"  [fallback] Haver semiconductor index download failed ({e}), falling back to yfinance...")
+        import yfinance as yf
+        df_yf = yf.download("^SOX", start=FETCH_START_DATE, progress=False)
+        if isinstance(df_yf.columns, pd.MultiIndex):
+            px = df_yf["Close"]["^SOX"]
+        else:
+            px = df_yf["Close"]
+        if isinstance(px, pd.DataFrame):
+            px = px.iloc[:, 0]
 
     monthly = px.resample("MS").last()
     yoy = monthly.pct_change(12) * 100
@@ -691,12 +915,17 @@ def fetch_ai_tech_proxy() -> pd.Series:
 # main
 # =========================================================================
 def main():
-    if FRED_API_KEY:
-        print("FRED_API_KEY detected — using the authenticated FRED REST API.")
+    if haver_client.API_KEY:
+        print("HAVER_API_KEY detected — Haver Analytics is the primary data source.")
     else:
-        print("No FRED_API_KEY set — falling back to the unauthenticated fredgraph.csv "
-              "scrape (more prone to rate limiting/timeouts). Set FRED_API_KEY for "
-              "more reliable FRED fetches.")
+        print("No HAVER_API_KEY set — every fetch below will immediately fall back to "
+              "FRED/yfinance/CPB/OECD/IMF. Set HAVER_API_KEY (see py/haver_client.py) "
+              "to use Haver as the primary source.")
+    if FRED_API_KEY:
+        print("FRED_API_KEY detected — fallback FRED calls use the authenticated REST API.")
+    else:
+        print("No FRED_API_KEY set — fallback FRED calls (if triggered) use the "
+              "unauthenticated fredgraph.csv scrape, more prone to rate limiting/timeouts.")
 
     print("Fetching Brent crude...")
     oil = fetch_oil_shock()
@@ -704,14 +933,13 @@ def main():
     print("Fetching financial conditions...")
     fin = fetch_financial_conditions()
 
-    print("Fetching CPB World Trade Monitor (world trade + industrial production)...")
-    xls, xlsx_url = fetch_cpb_world_trade_monitor()
-    trade, ip = parse_cpb_trade_and_ip(xls)
+    print("Fetching world trade + industrial production...")
+    trade, ip = fetch_trade_and_ip()
 
-    print("Fetching OECD Composite Leading Indicator (PMI substitute)...")
-    pmi_proxy = fetch_pmi_proxy()
+    print("Fetching Global Composite PMI...")
+    pmi = fetch_pmi()
 
-    print("Fetching AI/tech capex proxy (Yahoo Finance: ^SOX)...")
+    print("Fetching AI/tech capex proxy (semiconductor index)...")
     ai = fetch_ai_tech_proxy()
 
     print("Fetching copper price (Dr. Copper)...")
@@ -735,38 +963,33 @@ def main():
             return None
 
     vix = try_fetch("VIX", fetch_vix)
-    equity = try_fetch("equity index (^GSPC)", fetch_equity)
-    bank_equity = try_fetch("bank equity index (^BKX)", fetch_bank_equity)
+    equity = try_fetch("equity index (S&P 500)", fetch_equity)
+    bank_equity = try_fetch("bank equity index (KBW)", fetch_bank_equity)
     lending_standards = try_fetch("bank lending standards (SLOOS)", fetch_lending_standards)
-    em_spread = try_fetch("EM/sovereign spread proxy (EEM)", fetch_em_spread)
+    em_spread = try_fetch("EM sovereign spread (EMBI Global)", fetch_em_spread)
     housing = try_fetch("housing prices (Case-Shiller)", fetch_housing)
-    leverage = try_fetch("leverage / credit-to-GDP proxy", fetch_leverage)
+    leverage = try_fetch("leverage / credit-to-GDP", fetch_leverage)
     jobless_claims = try_fetch("weekly jobless claims", fetch_jobless_claims)
     retail_sales = try_fetch("retail sales (OECD)", fetch_retail_sales)
     consumer_conf = try_fetch("consumer confidence (OECD)", fetch_consumer_confidence)
     business_conf = try_fetch("business confidence (OECD)", fetch_business_confidence)
     covid_stringency = try_fetch("COVID stringency index (OxCGRT)", fetch_covid_stringency)
 
-    print("Fetching IMF quarterly world real GDP growth (QGDP_WCA)...")
-    try:
-        gdp_quarterly = fetch_imf_quarterly_gdp()
-    except Exception as e:
-        print(f"  [fallback] IMF quarterly GDP fetch failed ({e}), falling back to World Bank annual GDP (interpolated to quarterly)...")
-        gdp_annual = fetch_world_bank_annual_gdp_growth()
-        gdp_quarterly = get_quarterly_gdp_target(gdp_annual)
+    print("Fetching world real GDP growth (quarterly)...")
+    gdp_quarterly = fetch_gdp_target()
 
     series = [
-        pmi_proxy, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit,
+        pmi, trade, ip, oil, fin, ai, copper, yield_curve, usd, credit,
         vix, equity, bank_equity, lending_standards, em_spread, housing,
         leverage, jobless_claims, retail_sales, consumer_conf, business_conf,
         covid_stringency,
     ]
 
     # A fetch can technically succeed but return a series that's been
-    # discontinued (e.g. a FRED/OECD-mirror ticker that stopped updating
-    # years ago) or newly created (recent index rebase means little history
-    # before some cutoff) — either way, that column would silently truncate
-    # every OTHER column's usable history once the modeling scripts do
+    # discontinued (e.g. a ticker that stopped updating years ago) or newly
+    # created (recent index rebase means little history before some cutoff)
+    # — either way, that column would silently truncate every OTHER
+    # column's usable history once the modeling scripts do
     # dropna(subset=cols), since all columns must be non-null on the same
     # row. Better to drop a column like that here, with a clear reason,
     # than to let it wreck the whole panel's date range downstream.
@@ -795,7 +1018,6 @@ def main():
 
     panel = pd.concat([s for s in series if s is not None], axis=1)
     panel = panel.loc[START_DATE:].resample("MS").mean()
-    panel = panel.rename(columns={"pmi_proxy_oecd_cli": "pmi"})
     panel = panel.interpolate(limit=2)
 
     panel.to_csv(CSV / "panel_monthly.csv")

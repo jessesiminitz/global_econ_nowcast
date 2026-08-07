@@ -432,7 +432,7 @@ export default function GlobalGDPNowcastDFM() {
             <b>Two honest limitations worth flagging:</b><br/>
             1) <b>No live data access in this environment.</b> This sandbox has no network
             connection, so the ~250-month panel above is not pulled vintage-by-vintage from
-            FRED/CPB/OECD/S&P Global. It's constructed to match documented history — real
+            Haver Analytics (with FRED/CPB/OECD as fallback sources). It's constructed to match documented history — real
             recession dates, the actual JPMorgan PMI troughs (≈33 in Nov-2008, 26.2 in
             Apr-2020), actual IMF annual growth figures, and the real 2026 Brent move — but
             between those anchors the paths are interpolated, not observed. The estimation
@@ -450,7 +450,7 @@ export default function GlobalGDPNowcastDFM() {
           <p style={{ marginTop: 10 }}>To put this on real data: run <code className="mono">py/01_build_panel_real.py</code>
           on a machine with internet access — it now pulls 22 indicators total, including
           copper, the 10y-2y yield curve, a broad USD index, and high-yield credit spreads
-          (all FRED), plus VIX/equities/bank-lending-standards/housing/leverage/confidence
+          (via Haver Analytics), plus VIX/equities/bank-lending-standards/housing/leverage/confidence
           surveys/jobless-claims/COVID-stringency — then rerun
           <code className="mono"> py/02_estimate_dfm.py</code>, <code className="mono">py/03_estimate_ml.py</code>,
           <code className="mono"> py/04_backtest.py</code>, and <code className="mono">py/05_export.py</code>

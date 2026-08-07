@@ -10,8 +10,20 @@ import {
      Step 1: PCA on the standardized monthly indicator panel -> static
              factor (exact linear combination, so the decomposition
              below is additive by construction, not an approximation).
-     Step 2: AR(1) factor dynamics fit + Kalman filter/smoother.
-   Bridge regression: quarterly GDP growth ~ alpha + beta * factor.
+             model_lib.fit_dfm supports more factors (n_factors param) —
+             tried K=2/K=3 as a fix for a walk-forward accuracy issue, but
+             reverted: verified via the backtest harness that more factors
+             overfit the short early training windows and make
+             calm-regime RMSE worse, despite explaining more full-sample
+             variance (60.9% at K=3 vs. 38.8% at K=1).
+     Step 2: AR(1) factor dynamics fit + Kalman filter/smoother —
+             diagnostic only, doesn't feed the bridge regression or
+             decomposition below.
+   Bridge regression: quarterly GDP growth ~ trend + beta * factor, where
+   trend is a trailing 20-quarter average (not a full-sample intercept —
+   an early, unrepresentative period like 2005-2007's pre-GFC boom
+   otherwise permanently biases the forecast under an expanding backtest
+   window).
    The panel now supports up to 22 indicators — the original 10 (PMI,
    trade, industrial production, oil, financial conditions, AI/tech
    capex, copper, the 10y-2y yield curve slope, the broad USD index, and
@@ -440,11 +452,15 @@ export default function GlobalGDPNowcastDFM() {
             run unchanged on real pulled data.<br/><br/>
             2) <b>Oil's positive loading is a known single-factor limitation.</b> Historically
             oil prices are procyclical on average (demand pulls both up together), so the model
-            learned a positive weight. But the 2026 spike is a <i>supply</i> shock (Strait of
-            Hormuz), which a one-factor model can't distinguish from a demand-driven rise — it
-            will show 2026Q3 oil as a tailwind when the real-world channel (cost, uncertainty)
-            is arguably a drag. Multi-factor or structural (sign-restricted) models handle this
-            better; a single common factor cannot.
+            learned a positive weight. But a genuine <i>supply</i> shock (e.g. a Strait of Hormuz
+            disruption) is not something a one-factor model can distinguish from a demand-driven
+            rise — it will show up as a modeled tailwind when the real-world channel (cost,
+            uncertainty) is arguably a drag. Adding more static factors doesn't fix this either —
+            tested directly (see the header comment above), more factors overfit this panel's
+            short early training windows and made walk-forward accuracy worse, not better; plain
+            PCA factors also aren't constrained to align with economically meaningful shock types
+            regardless of how many are used. Genuinely fixing this needs a structural
+            (sign-restricted) model, not just more factors.
           </div>
 
           <p style={{ marginTop: 10 }}>To put this on real data: run <code className="mono">py/01_build_panel_real.py</code>

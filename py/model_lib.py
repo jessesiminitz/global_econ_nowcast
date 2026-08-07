@@ -18,20 +18,94 @@ Each returns a dict with the same shape:
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
-from sklearn.linear_model import ElasticNetCV
+from sklearn.linear_model import ElasticNet, ElasticNetCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import TimeSeriesSplit
 
+# Both fit_dfm and fit_elastic_net anchor their level/trend to the trailing
+# N quarters of the training window's own GDP prints, rather than a
+# full-sample least-squares intercept. 04_backtest.py's walk-forward window
+# is EXPANDING (train_panel = panel.loc[:cutoff]), so a full-sample
+# intercept keeps 2005-2007's real, one-off pre-GFC boom (+5.17% avg growth,
+# vs +2.85%-+3.66% every era since) baked into the "trend" for every fold
+# from 2008 through the present — both models shared an almost identical
+# ~-0.47pp calm-regime overprediction bias as a result. A trailing window
+# lets that stale boom drop out of the trend estimate once enough more
+# recent history accumulates, while still using the FULL training window
+# for the factor/weight structure (which isn't what was biased). This is a
+# partial fix, not a complete one — measured directly, an expanding-window
+# mean runs ~0.15-0.35pp above a trailing-20q mean at typical backtest
+# cutoffs, smaller than the full observed bias — so re-measure after
+# changing this rather than assuming it's fully closed.
+TREND_WINDOW_QUARTERS = 20
 
-def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list) -> dict:
+# fit_elastic_net's inner ElasticNetCV picks its regularization strength via
+# TimeSeriesSplit(n_splits=max(2, min(5, T_train // 8))) — with as few as 12
+# training quarters (04_backtest.py's MIN_TRAIN_QUARTERS), that's only 2 CV
+# folds of ~6 observations each, tuning across 23 features (20 indicators +
+# 3 PCA factors). Measured this session: elastic-net's backtest errors carry
+# a -0.27 lag-1 autocorrelation (vs DFM's -0.04) — a plausible symptom of
+# noisy quarter-to-quarter hyperparameter selection on folds this thin.
+# Below MIN_CV_QUARTERS, skip the inner CV search and use a fixed, modest
+# regularization instead, rather than trusting a search that can't be
+# reliably cross-validated yet. MIN_TRAIN_QUARTERS itself stays untouched in
+# 04_backtest.py — it's deliberately short so backtesting starts before the
+# GFC, a tradeoff worth keeping.
+MIN_CV_QUARTERS = 20
+FALLBACK_ALPHA = 0.01
+FALLBACK_L1_RATIO = 0.5
+# (Measured: this gate leaves the aggregate lag-1 error autocorrelation
+# essentially unchanged, -0.261 vs -0.267 — it only touches ~8 of 73
+# backtest folds, too small a slice to move an aggregate statistic either
+# way. Kept because the underlying reasoning — don't trust a 2-fold,
+# ~6-obs/fold CV search — still holds per-fold; just don't oversell it as a
+# proven aggregate win.)
+
+# TRIED AND REVERTED: clipping standardized inputs to +-4 before the linear
+# combination, to bound the -52.4%-vs-actual-(-21.3%) 2020-04 prediction.
+# Measured result: it made things WORSE, not better — clipped calm RMSE
+# 2.76 vs 2.05 unclipped, and the single worst error actually grew to 40.6
+# (vs 31.1 unclipped). Mechanism: clipping the INPUT doesn't bound the
+# OUTPUT — fit on truncated training extremes, the model compensated with
+# larger coefficients (e.g. ip's weight grew to ~4.2), so a clipped input
+# times an inflated weight can overshoot even more than an unclipped input
+# times the original weight did. Bounding the prediction itself (e.g. a
+# Huber loss on the target, or capping the final output) would be a
+# different, untested approach — not implemented here.
+
+
+def _trailing_trend(y: np.ndarray, window: int = TREND_WINDOW_QUARTERS) -> float:
+    return float(np.mean(y[-window:]))
+
+
+def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = 1) -> dict:
     """
-    Single-factor DFM: standardize -> first principal component (static
-    factor) -> AR(1) + Kalman filter/smoother -> bridge regression of
-    quarterly GDP growth on the quarterly-averaged static factor -> exact
-    per-indicator decomposition (the static factor is an exact linear
-    combination of the standardized indicators, so the bridge-implied growth
-    decomposes additively). Same math as the original 02_estimate_dfm.py.
+    DFM: standardize -> top-`n_factors` principal components (static
+    factors) -> multivariate bridge regression of quarterly GDP growth
+    (demeaned by a trailing-window trend, see _trailing_trend) on the
+    quarterly-averaged static factors -> exact per-indicator decomposition
+    (each static factor is an exact linear combination of the standardized
+    indicators, so the bridge-implied growth decomposes additively across
+    indicators regardless of how many factors are used). A scalar AR(1) +
+    Kalman filter/smoother is still fit on the FIRST factor alone as a
+    diagnostic (`factor_smoothed` on the returned panel, `phi`/`sigma_w2`
+    in `params`) — it does not feed `predict()`, `contrib`, or `fitted`
+    today (never did).
+
+    n_factors defaults to 1 (single-factor), not because more factors
+    wouldn't explain more full-sample variance — they do (K=3 clears 60.9%
+    cumulative variance vs. 38.8% for K=1, measured on this panel) — but
+    because that doesn't hold up walk-forward: tested directly via
+    04_backtest.py's harness, K=2 and K=3 both had WORSE calm-regime RMSE
+    than K=1 (1.65 at K=1, vs 2.34 at K=2 and 2.05 at K=3). More factors
+    means more parameters fit on training windows as short as 12-19
+    quarters early in the backtest — a textbook overfitting risk that a
+    full-sample variance-explained check doesn't catch. The K-factor
+    machinery is kept (parameterized, not hardcoded to K=1) in case a
+    future change to MIN_TRAIN_QUARTERS or the panel makes more factors
+    viable, but re-verify against the walk-forward backtest, not just
+    var_explained, before raising this default.
     """
     panel = panel.dropna(subset=cols).copy()
     X = panel[cols].values
@@ -52,29 +126,43 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list) -> dict:
     order = np.argsort(eigval)[::-1]
     eigval, eigvec = eigval[order], eigvec[:, order]
 
-    v1 = eigvec[:, 0]
-    if v1[0] < 0:
-        v1 = -v1
-    raw_f = Z @ v1
-    f_scale = raw_f.std()
-    w = v1 / f_scale
-    F_static = Z @ w
+    # Top-K static factors (K=1 by default — see the docstring above for why
+    # more factors were tried and reverted). Each is independently
+    # unit-scaled the same way the original single factor was.
+    K = max(1, min(n_factors, N, T - 2, len(eigval)))
+    W = np.zeros((N, K))
+    F_static = np.zeros((T, K))
+    for k in range(K):
+        vk = eigvec[:, k]
+        if vk[0] < 0:
+            vk = -vk
+        raw_fk = Z @ vk
+        f_scale = raw_fk.std()
+        wk = vk / f_scale if f_scale > 0 else vk
+        W[:, k] = wk
+        F_static[:, k] = Z @ wk
+
+    # Everything below through the Kalman smoother is a DIAGNOSTIC fit on
+    # the FIRST factor alone (F1) — it feeds `factor_smoothed`/`phi`/
+    # `sigma_w2` for logging only. The bridge regression a few lines down
+    # uses the full K-factor F_static, not F1 or f_smooth.
+    F1 = F_static[:, 0]
     # Z[:, i] can be constant within the training window (see the sd guard
     # above), which makes corrcoef divide-by-zero (undefined correlation for
     # a constant series) — this `lam` is diagnostic-only, so 0 is fine.
     lam = np.array([
-        0.0 if np.allclose(Z[:, i], Z[0, i]) else np.corrcoef(Z[:, i], F_static)[0, 1] * sd[i]
+        0.0 if np.allclose(Z[:, i], Z[0, i]) else np.corrcoef(Z[:, i], F1)[0, 1] * sd[i]
         for i in range(N)
     ])
 
-    var_explained = eigval[0] / eigval.sum()
+    var_explained = eigval[:K].sum() / eigval.sum()
 
-    phi = np.sum(F_static[1:] * F_static[:-1]) / np.sum(F_static[:-1] ** 2)
-    resid_f = F_static[1:] - phi * F_static[:-1]
+    phi = np.sum(F1[1:] * F1[:-1]) / np.sum(F1[:-1] ** 2)
+    resid_f = F1[1:] - phi * F1[:-1]
     sigma_w2 = resid_f.var()
 
-    lam_on_F = np.array([np.polyfit(F_static, Z[:, i], 1)[0] for i in range(N)])
-    idio_var = np.array([np.var(Z[:, i] - lam_on_F[i] * F_static) for i in range(N)])
+    lam_on_F = np.array([np.polyfit(F1, Z[:, i], 1)[0] for i in range(N)])
+    idio_var = np.array([np.var(Z[:, i] - lam_on_F[i] * F1) for i in range(N)])
 
     # A constant column within the training window (e.g. covid_stringency
     # pre-2020, or any indicator with sd==0 above) has exactly zero
@@ -107,26 +195,44 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list) -> dict:
         f_smooth[t] = f_filt[t] + J * (f_smooth[t + 1] - phi * f_filt[t])
         P_smooth[t] = P_filt[t] + J ** 2 * (P_smooth[t + 1] - P_pred[t + 1])
 
-    panel["factor_static"] = F_static
+    panel["factor_static"] = F1
     panel["factor_smoothed"] = f_smooth
 
-    Fq_static = pd.Series(F_static, index=panel.index).resample("QS").mean()
+    Fq_static = pd.DataFrame(F_static, index=panel.index, columns=[f"f{k}" for k in range(K)]).resample("QS").mean()
     common_idx = gdp.index.intersection(Fq_static.index)
     y = gdp.loc[common_idx].values
-    x = Fq_static.loc[common_idx].values
-    Xd = np.column_stack([np.ones_like(x), x])
-    beta_hat, *_ = np.linalg.lstsq(Xd, y, rcond=None)
-    alpha, beta = beta_hat
-    fitted = alpha + beta * x
+    Xf = Fq_static.loc[common_idx].values  # T_train x K
+
+    # Estimate beta by demeaning y with the FULL training-window mean, not
+    # the trailing trend — Xf's columns are already ~mean-zero over this
+    # same full window (built from mean-zero Z), so this reproduces the
+    # original well-posed with-intercept OLS's beta (regressing y on
+    # [1, Xf] jointly gives alpha_ols ~ full_mean when Xf is ~mean-zero,
+    # so demeaning by full_mean and dropping the intercept column is
+    # numerically equivalent). Demeaning by the trailing trend INSTEAD,
+    # here, would mismatch Xf's own full-window centering and distort
+    # beta — confirmed by testing: it made bias and RMSE worse, not
+    # better. The trailing trend is used only below, as the reported
+    # level/intercept for `fitted`, decoupled from beta estimation.
+    full_mean = float(np.mean(y))
+    beta_vec, *_ = np.linalg.lstsq(Xf, y - full_mean, rcond=None)
+    trend = _trailing_trend(y)
+    alpha = trend
+    fitted = alpha + Xf @ beta_vec
     resid = y - fitted
     r2 = 1 - resid.var() / y.var()
 
     Zdf = pd.DataFrame(Z, index=panel.index, columns=cols)
     Zq = Zdf.resample("QS").mean().loc[common_idx]
 
+    # Combined per-indicator sensitivity across all K factors — indicator i's
+    # effective weight is sum_k(beta_vec[k] * W[i, k]), so the decomposition
+    # stays additive per indicator even with K>1 factors.
+    combined_w = W @ beta_vec  # length N
+
     contrib = pd.DataFrame(index=common_idx, columns=cols, dtype=float)
     for i, c in enumerate(cols):
-        contrib[c] = beta * w[i] * Zq[c].values
+        contrib[c] = combined_w[i] * Zq[c].values
     contrib["trend"] = alpha
     contrib["fitted"] = contrib[cols].sum(axis=1) + alpha
     contrib["actual"] = y
@@ -135,18 +241,22 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list) -> dict:
     def predict(monthly_panel_slice: pd.DataFrame) -> pd.Series:
         Xp = monthly_panel_slice[cols].values
         Zp = (Xp - mu) / sd
-        Fp = Zp @ w
-        Fpq = pd.Series(Fp, index=monthly_panel_slice.index).resample("QS").mean()
-        return alpha + beta * Fpq
+        Fp = Zp @ W  # T x K
+        Fpq = pd.DataFrame(Fp, index=monthly_panel_slice.index).resample("QS").mean()
+        return pd.Series(alpha + Fpq.values @ beta_vec, index=Fpq.index)
 
     params = {
         "var_explained": var_explained,
+        "n_factors": K,
         "phi": phi,
         "sigma_w2": sigma_w2,
         "alpha": alpha,
-        "beta": beta,
+        "beta": beta_vec.tolist(),
         "r2": r2,
-        "weights": dict(zip(cols, w)),
+        # Combined (bridge-scaled) per-indicator weight — same semantics as
+        # fit_elastic_net's own `weights` below (contribution per unit
+        # z-score), not the raw pre-bridge factor loading.
+        "weights": dict(zip(cols, combined_w)),
         "loadings_on_F": dict(zip(cols, Lam)),
         # Uniform fields (same keys fit_elastic_net exposes below) so
         # forecast_quarters() can extend either model without special-casing:
@@ -154,7 +264,7 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list) -> dict:
         "mu": dict(zip(cols, mu)),
         "sd": dict(zip(cols, sd)),
         "const": alpha,
-        "effective_weights": {c: beta * w[i] for i, c in enumerate(cols)},
+        "effective_weights": dict(zip(cols, combined_w)),
     }
     return {"contrib": contrib, "panel_with_factor": panel, "params": params, "predict": predict}
 
@@ -177,6 +287,8 @@ def fit_elastic_net(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: 
     # See fit_dfm's identical guard: a constant column within a training
     # window (e.g. covid_stringency pre-2020) would otherwise divide by zero.
     sd = np.where(X.std(axis=0, ddof=0) == 0, 1.0, X.std(axis=0, ddof=0))
+    # No input clipping here — tried and reverted, see the module-level
+    # "TRIED AND REVERTED" comment above.
     Z = (X - mu) / sd
     Zdf = pd.DataFrame(Z, index=panel.index, columns=cols)
     Zq_full = Zdf.resample("QS").mean()
@@ -187,30 +299,45 @@ def fit_elastic_net(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: 
     N = len(cols)
     T_train = len(common_idx)
 
+    # Trend/level from the trailing window, same mechanism and same
+    # rationale as fit_dfm's identical step — fit the elastic net on the
+    # DEMEANED target so a stale early-history level can't anchor it.
+    trend = _trailing_trend(y)
+    y_demeaned = y - trend
+
     n_factors_eff = max(1, min(n_factors, N, T_train - 2))
     pca = PCA(n_components=n_factors_eff, random_state=random_state)
     pca_scores = pca.fit_transform(Zq.values)
     features = np.hstack([Zq.values, pca_scores])
 
-    n_splits = max(2, min(5, T_train // 8))
-    pipe = Pipeline([
-        ("scale", StandardScaler()),
-        ("enet", ElasticNetCV(
+    if T_train < MIN_CV_QUARTERS:
+        # Too few training quarters for a reliable inner CV search (see
+        # MIN_CV_QUARTERS comment above) — use a fixed, modest
+        # regularization instead of trusting noisy folds to pick one.
+        enet = ElasticNet(alpha=FALLBACK_ALPHA, l1_ratio=FALLBACK_L1_RATIO, max_iter=20000, random_state=random_state)
+        alpha_used, l1_ratio_used = FALLBACK_ALPHA, FALLBACK_L1_RATIO
+    else:
+        n_splits = max(2, min(5, T_train // 8))
+        enet = ElasticNetCV(
             l1_ratio=[0.1, 0.5, 0.7, 0.9, 0.95, 1.0],
             cv=TimeSeriesSplit(n_splits=n_splits),
             max_iter=20000,
             random_state=random_state,
-        )),
-    ])
-    pipe.fit(features, y)
+        )
+    pipe = Pipeline([("scale", StandardScaler()), ("enet", enet)])
+    pipe.fit(features, y_demeaned)
+    if hasattr(pipe.named_steps["enet"], "alpha_"):
+        alpha_used = pipe.named_steps["enet"].alpha_
+        l1_ratio_used = pipe.named_steps["enet"].l1_ratio_
 
     def _predict_from_zq_row(zq_row: np.ndarray) -> float:
         pca_row = pca.transform(zq_row.reshape(1, -1))
         feat_row = np.hstack([zq_row.reshape(1, -1), pca_row])
         return float(pipe.predict(feat_row)[0])
 
-    c0 = _predict_from_zq_row(np.zeros(N))
-    g = np.array([_predict_from_zq_row(np.eye(N)[j]) - c0 for j in range(N)])
+    resid_intercept = _predict_from_zq_row(np.zeros(N))
+    c0 = trend + resid_intercept
+    g = np.array([_predict_from_zq_row(np.eye(N)[j]) - resid_intercept for j in range(N)])
 
     fitted = c0 + Zq.values @ g
     resid = y - fitted
@@ -232,8 +359,9 @@ def fit_elastic_net(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: 
         return pd.Series(preds)
 
     params = {
-        "alpha_enet": pipe.named_steps["enet"].alpha_,
-        "l1_ratio_enet": pipe.named_steps["enet"].l1_ratio_,
+        "alpha_enet": alpha_used,
+        "l1_ratio_enet": l1_ratio_used,
+        "cv_tuned": T_train >= MIN_CV_QUARTERS,
         "n_factors": n_factors_eff,
         "r2": r2,
         "weights": dict(zip(cols, g)),

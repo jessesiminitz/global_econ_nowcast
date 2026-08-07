@@ -110,7 +110,15 @@ to make any fallback FRED call use the official authenticated
 
 ## Model comparison: DFM baseline vs. elastic-net/factor-ML challenger
 
-`02_estimate_dfm.py` is the baseline (unchanged single-factor DFM).
+`02_estimate_dfm.py` is the baseline (single-factor DFM — `model_lib.fit_dfm`
+supports more factors via an `n_factors` parameter, and more factors do
+explain more full-sample variance, but walk-forward backtesting showed it
+overfits: K=2/K=3 both had worse calm-regime RMSE than K=1, so single-factor
+stays the default). Both models anchor their trend/level to a trailing
+20-quarter window rather than a full-sample intercept, so an unrepresentative
+early period like 2005-2007's pre-GFC boom can't permanently bias the
+forecast under an expanding backtest window — see `model_lib.py`'s
+module-level comments for the numbers behind both changes.
 `03_estimate_ml.py` is a challenger: the quarterly-averaged, standardized
 indicator panel plus its top PCA factors, fed into `ElasticNetCV` (shrinkage/
 selection via time-series cross-validation). Both share their core fitting

@@ -1,8 +1,9 @@
+n_factors=1
 var_explained=0.3884474105842408
 phi=0.9463644411667617
 sigma_w2=0.10432953856946409
-alpha=3.626017901086118
-beta=2.406822541376342
-r2=0.18835726095038852
-weights=pmi:0.0983,trade:0.0699,ip:0.0621,oil:0.0708,fin:0.1051,ai:0.0798,copper:0.0888,yield_curve:-0.0095,usd:0.0733,vix:0.0951,equity:0.1092,bank_equity:0.0997,lending_standards:0.0888,em_spread:0.1029,housing:0.0705,jobless_claims:0.0492,retail_sales:0.0408,consumer_conf:0.0696,business_conf:0.1058,covid_stringency:-0.0071
+alpha=3.603861835162477
+beta=F0:2.4067
+r2=0.18835726045186596
+weights=pmi:0.2366,trade:0.1683,ip:0.1494,oil:0.1705,fin:0.2529,ai:0.1920,copper:0.2137,yield_curve:-0.0229,usd:0.1764,vix:0.2289,equity:0.2627,bank_equity:0.2401,lending_standards:0.2138,em_spread:0.2477,housing:0.1696,jobless_claims:0.1184,retail_sales:0.0983,consumer_conf:0.1676,business_conf:0.2546,covid_stringency:-0.0172
 loadings_on_F=pmi:0.7636,trade:0.5434,ip:0.4824,oil:0.5503,fin:0.8165,ai:0.6199,copper:0.6898,yield_curve:-0.0739,usd:0.5695,vix:0.7388,equity:0.8480,bank_equity:0.7749,lending_standards:0.6901,em_spread:0.7997,housing:0.5475,jobless_claims:0.3820,retail_sales:0.3173,consumer_conf:0.5409,business_conf:0.8218,covid_stringency:-0.0555

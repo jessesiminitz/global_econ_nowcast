@@ -8,7 +8,7 @@ from the repo root or from inside `py/`, either works.
 Run this on a machine with internet access, from the repo root:
 
 ```
-pip install requests pandas numpy scipy scikit-learn openpyxl yfinance matplotlib
+pip install requests pandas numpy scipy scikit-learn openpyxl yfinance matplotlib pytest
 echo "HAVER_API_KEY=your_key_here" > .env   # required, see below
 export FRED_API_KEY=your_key_here           # optional, used only as a fallback if Haver is unreachable
 python3 py/01_build_panel_real.py   # csv/panel_monthly.csv + csv/gdp_quarterly.csv
@@ -17,6 +17,32 @@ python3 py/03_estimate_ml.py        # elastic-net/factor-ML challenger -> csv/qu
 python3 py/04_backtest.py           # rolling out-of-sample comparison -> json/backtest_summary.json
 python3 py/05_export.py             # png/*.png charts + json/decomposition_export.json
 ```
+
+### Running tests
+
+```
+pytest tests/
+```
+
+`tests/` covers `py/model_lib.py` — the shared `fit_dfm`/`fit_elastic_net`/
+`forecast_quarters` logic every other script depends on — against a small
+fixed synthetic panel (`tests/conftest.py`), not the real Haver-pulled data
+(that needs network access and drifts every re-pull, which would make tests
+flaky). It locks in the mechanisms behind this project's own accuracy fixes
+so a future change can't silently reintroduce them: the decomposition's
+additivity (bars must sum to the fitted line, for both models and for
+forecast quarters, even when the output cap below rescales them), the
+trailing-window trend actually using recent data, the DFM's ridge
+regularization actually shrinking its bridge-regression coefficients
+relative to the unregularized fit it replaced, the elastic-net's 1-SE rule
+always picking at least as much regularization as the raw CV-optimal
+choice, and both `fit_elastic_net.predict()` and `forecast_quarters()`
+staying inside their plausibility bound on deliberately extreme inputs.
+That last set of tests was checked to actually fail when the bound they
+cover is disabled (not just pass regardless) — see the comments in
+`tests/test_model_lib.py` for why that check matters: an earlier draft of
+those tests computed its own tolerance from the same constant the code
+under test reads, so it couldn't have caught the bound being removed.
 
 `01_build_panel_real.py` pulls real data with no manual CSV assembly. Haver
 Analytics is the primary source for every indicator (via `py/haver_client.py`,
@@ -117,7 +143,13 @@ but ridge-regularizing the bridge regression across K=3 factors instead
 RMSE, *and* overall RMSE simultaneously, measured via `04_backtest.py` —
 not just a calm/stressed tradeoff, which is what ridge-regularizing a
 single factor alone produces instead; see `model_lib.py`'s module-level
-comment for the full sweep). Both models anchor their trend/level to a trailing
+comment for the full sweep). The DFM still fits a scalar AR(1) + Kalman
+filter/smoother on the first factor, but only as a diagnostic — wiring the
+smoothed factor(s) into the bridge regression itself (the Doz-Giannone-
+Reichlin two-step estimator's actual design) was tried and reverted after
+an ablation against the real backtest moved overall RMSE by nothing and
+calm RMSE by noise-level amounts either way; see `fit_dfm`'s docstring for
+the numbers. Both models anchor their trend/level to a trailing
 20-quarter window rather than a full-sample intercept, so an unrepresentative
 early period like 2005-2007's pre-GFC boom can't permanently bias the
 forecast under an expanding backtest window — see `model_lib.py`'s
@@ -202,6 +234,7 @@ location (`py/paths.py`), regardless of your current directory:
 - `py/05_export.py` — charts + JSON export for the React dashboard, all for the winning model (plus dual-model chart variants)
 - `py/model_lib.py` — shared `fit_dfm()`/`fit_elastic_net()`/`forecast_quarters()` used by all three modeling scripts above
 - `py/paths.py` — shared `CSV`/`JSON`/`PNG`/`TXT` folder constants
+- `tests/test_model_lib.py` / `tests/conftest.py` — regression tests for `model_lib.py` against a small synthetic fixture (`pytest tests/`, see "Running tests" above)
 - `jsx/global_gdp_nowcast_dfm.jsx` — React/Recharts dashboard; renders whichever indicator keys are in the loaded export
 - `csv/panel_monthly.csv` — monthly indicator panel
 - `csv/gdp_quarterly.csv` — quarterly GDP growth target

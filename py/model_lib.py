@@ -127,6 +127,21 @@ def fit_dfm(panel: pd.DataFrame, gdp: pd.Series, cols: list, n_factors: int = DF
     in `params`) — it does not feed `predict()`, `contrib`, or `fitted`
     today (never did).
 
+    Wiring the Kalman-smoothed factor(s) into the bridge regression itself
+    (the DGR two-step estimator's actual design) was tried and reverted:
+    an ablation against the real walk-forward backtest swapped in
+    `f_smooth` for the raw static factor, both for factor 0 alone
+    (keeping factors 1-2 raw) and for all K=3 factors independently
+    smoothed. Neither moved overall RMSE at all (4.57 in every variant);
+    factor-0-only was a wash on calm RMSE (1.56 vs 1.57 baseline) and
+    stressed RMSE (13.95 vs 13.95), and smoothing all three factors was
+    slightly WORSE on calm (1.62). The smoother's within-sample AR(1) fit
+    doesn't generalize into an out-of-sample edge here, likely because it's
+    refit from scratch on each short (12-19 quarter, growing) training
+    window right alongside the static factor it's supposed to be
+    improving on — there isn't a longer, separately-estimated persistence
+    structure for it to add. Left as a diagnostic-only computation.
+
     n_factors defaults to 3. An earlier attempt at this (unregularized —
     plain np.linalg.lstsq across K factors) was tried and reverted: K=2/K=3
     both had WORSE calm-regime RMSE than K=1 (1.65 at K=1, vs 2.34 at K=2
@@ -462,6 +477,21 @@ def forecast_quarters(panel: pd.DataFrame, gdp: pd.Series, cols: list, mu: dict,
     Returns a DataFrame shaped like `contrib` above, plus an `is_forecast`
     column (all True) and `actual`/`residual` left as NaN (nothing to
     compare against yet).
+
+    `fitted` is clipped to trend +- PREDICT_STD_CAP_K * std(gdp) (same
+    mechanism as fit_elastic_net's predict(), computed fresh here from the
+    full `gdp` series since this function is shared by both models and
+    doesn't otherwise know which one is calling it). Unlike predict(),
+    this function's output actually feeds the dashboard's stacked-bar
+    decomposition, not just a backtest score — so when the cap changes a
+    row's fitted value, the per-indicator bars for that row are rescaled
+    proportionally too, keeping the decomposition additive rather than
+    silently drifting out of sync with the displayed line. In practice
+    this essentially never binds (the bound computed from this panel's
+    full history runs roughly +-40pp), but the four "nowcast gap" quarters
+    use real just-published indicator data, not the damped AR(1)
+    extrapolation the later quarters use — so a genuinely extreme reading
+    there is a real, if rare, possibility worth guarding against.
     """
     cols = list(cols)
     mu_arr = np.array([mu[c] for c in cols])
@@ -505,7 +535,33 @@ def forecast_quarters(panel: pd.DataFrame, gdp: pd.Series, cols: list, mu: dict,
     for c in cols:
         contrib[c] = effective_weights[c] * Zq_fore[c].values
     contrib["trend"] = const
-    contrib["fitted"] = contrib[cols].sum(axis=1) + const
+    raw_fitted = contrib[cols].sum(axis=1).values + const
+
+    # Plausibility bound (see docstring) — computed from this panel's own
+    # full GDP history, not a training-window subset, since forecast
+    # quarters are generated from the complete dataset, not a backtest fold.
+    y_all = gdp.dropna().values
+    y_std = float(np.std(y_all))
+    trend_full = _trailing_trend(y_all)
+    lo, hi = trend_full - PREDICT_STD_CAP_K * y_std, trend_full + PREDICT_STD_CAP_K * y_std
+    capped_fitted = np.clip(raw_fitted, lo, hi)
+
+    # Where the cap actually changed something, rescale that row's
+    # per-indicator bars proportionally so they still sum to the (capped)
+    # fitted value — otherwise the stacked-bar chart would silently stop
+    # matching its own fitted/actual line for that quarter.
+    raw_dev = raw_fitted - const
+    capped_dev = capped_fitted - const
+    scale = np.ones_like(raw_fitted)
+    changed = capped_fitted != raw_fitted
+    nonzero_dev = raw_dev != 0
+    apply_scale = changed & nonzero_dev
+    scale[apply_scale] = capped_dev[apply_scale] / raw_dev[apply_scale]
+    if apply_scale.any():
+        for c in cols:
+            contrib[c] = contrib[c].values * scale
+
+    contrib["fitted"] = capped_fitted
     contrib["actual"] = np.nan
     contrib["residual"] = np.nan
     contrib["is_forecast"] = True

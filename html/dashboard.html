@@ -1,0 +1,1308 @@
+<title>Global GDP Nowcast</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page-bg: #eeece4;
+    --surface: #fcfcfb;
+    --surface-raised: #ffffff;
+    --ink: #0b0b0b;
+    --ink-secondary: #52514e;
+    --ink-muted: #898781;
+    --line: #e1e0d9;
+    --axis: #c3c2b7;
+    --accent: #8a5a2b;
+    --accent-soft: rgba(138,90,43,0.12);
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    --cat-1: #2a78d6;
+    --cat-2: #eb6834;
+    --cat-3: #1baf7a;
+    --cat-4: #eda100;
+    --cat-5: #e87ba4;
+    --residual: #898781;
+    --shadow: 0 1px 2px rgba(20,18,12,0.04), 0 8px 24px -12px rgba(20,18,12,0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page-bg: #14181a;
+      --surface: #1a1a19;
+      --surface-raised: #202422;
+      --ink: #f4f1e8;
+      --ink-secondary: #c3c2b7;
+      --ink-muted: #8f8d84;
+      --line: rgba(255,255,255,0.10);
+      --axis: rgba(255,255,255,0.22);
+      --accent: #d2a24c;
+      --accent-soft: rgba(210,162,76,0.16);
+      --good: #29c229;
+      --critical: #e66767;
+      --cat-1: #3987e5;
+      --cat-2: #d95926;
+      --cat-3: #199e70;
+      --cat-4: #c98500;
+      --cat-5: #d55181;
+      --residual: #8f8d84;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page-bg: #14181a;
+    --surface: #1a1a19;
+    --surface-raised: #202422;
+    --ink: #f4f1e8;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #8f8d84;
+    --line: rgba(255,255,255,0.10);
+    --axis: rgba(255,255,255,0.22);
+    --accent: #d2a24c;
+    --accent-soft: rgba(210,162,76,0.16);
+    --good: #29c229;
+    --critical: #e66767;
+    --cat-1: #3987e5;
+    --cat-2: #d95926;
+    --cat-3: #199e70;
+    --cat-4: #c98500;
+    --cat-5: #d55181;
+    --residual: #8f8d84;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    background: var(--page-bg);
+    color: var(--ink);
+    margin: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px 64px;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  a { color: inherit; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.92em;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 22px;
+  }
+  .masthead-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 14px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .asof {
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+  .title {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-weight: 600;
+    font-size: 40px;
+    line-height: 1.08;
+    margin: 0 0 10px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---- assessment ---- */
+  .assessment {
+    border-left: 3px solid var(--accent);
+    padding: 2px 0 2px 20px;
+  }
+  .assessment .eyebrow { margin-bottom: 8px; }
+  .assessment p {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.62;
+    color: var(--ink);
+    max-width: 74ch;
+    margin: 0;
+  }
+  .assessment p b { color: var(--accent); font-weight: 600; }
+
+  /* ---- tabs ---- */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab-btn {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    padding: 10px 4px 12px;
+    margin-right: 22px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tab-panel { display: flex; flex-direction: column; gap: 30px; }
+  .tab-panel[hidden] { display: none; }
+
+  /* ---- memo ---- */
+  .memo-page {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 44px 56px 48px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .memo-head {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 18px;
+    margin-bottom: 26px;
+  }
+  .memo-kicker {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .memo-title {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-weight: 600;
+    font-size: 26px;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .memo-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--ink-secondary);
+  }
+  .memo-meta b { color: var(--ink); font-weight: 600; }
+  .memo-page h3 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 26px 0 8px;
+  }
+  .memo-page p {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-size: 14.5px;
+    line-height: 1.68;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+  .memo-page p b { font-weight: 700; }
+  @media (max-width: 640px) {
+    .memo-page { padding: 30px 22px 34px; }
+  }
+
+  /* ---- hero ---- */
+  .hero {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 28px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 26px 28px;
+    box-shadow: var(--shadow);
+  }
+  .hero-label {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 6px;
+  }
+  .hero-value {
+    font-size: 56px;
+    font-weight: 650;
+    line-height: 1;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+  .hero-caption {
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--ink-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10.5px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 20px;
+    padding: 2px 9px;
+    letter-spacing: 0.02em;
+  }
+  .hero-model { min-width: 240px; max-width: 420px; }
+  .model-badge {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 600; font-size: 13.5px; margin-bottom: 8px;
+  }
+  .model-badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    flex: none;
+  }
+  .badge-tag {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-muted); border: 1px solid var(--line);
+    border-radius: 20px; padding: 2px 8px;
+  }
+  .model-desc {
+    font-size: 12.5px; line-height: 1.6; color: var(--ink-secondary); margin: 0;
+  }
+  .hero-stats { display: flex; gap: 22px; }
+  .hero-stats .stat { text-align: right; }
+  .hero-stats .v { font-size: 18px; }
+  .hero-stats .l { font-size: 10px; color: var(--ink-muted); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
+
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; text-align: left; }
+    .hero-stats { flex-wrap: wrap; }
+  }
+
+  /* ---- section heads ---- */
+  .section-head h2, .panel h2, .methodology h2 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .section-head p, .panel p {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    margin: 0 0 14px;
+  }
+
+  /* ---- chart ---- */
+  .chart-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 16px 8px;
+    box-shadow: var(--shadow);
+  }
+  .chart-scroll { overflow-x: auto; }
+  #chart { display: block; }
+  #chart text { fill: var(--ink-secondary); }
+  .chart-hit { fill: transparent; cursor: crosshair; }
+  .chart-hit:focus { outline: none; }
+  .chart-hit:focus + .focus-ring { opacity: 1; }
+
+  .tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    min-width: 200px;
+    box-shadow: var(--shadow);
+    z-index: 5;
+  }
+  .tooltip-q { font-family: ui-monospace, monospace; color: var(--ink-muted); font-size: 11px; margin-bottom: 6px; }
+  .tooltip-row { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; }
+  .tooltip-row .k { display: flex; align-items: center; gap: 6px; color: var(--ink-secondary); }
+  .tooltip-row .key-line { width: 10px; height: 2px; border-radius: 1px; display: inline-block; }
+  .tooltip-row .v { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .tooltip-total { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 5px; font-weight: 600; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px 22px;
+    margin-top: 14px; padding: 0 4px;
+    font-size: 12px; color: var(--ink-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .legend-line { width: 14px; height: 0; border-top-width: 2px; border-top-style: solid; flex: none; }
+
+  .table-toggle, .method-toggle {
+    margin-top: 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.03em;
+    color: var(--ink-muted);
+    background: none; border: none; cursor: pointer; padding: 0;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .table-toggle:hover, .method-toggle:hover { color: var(--ink); }
+  .table-toggle:focus-visible, .method-toggle:focus-visible,
+  .chart-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .table-wrap { margin-top: 12px; }
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  table.data-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 11px;
+  }
+  table.data-table th, table.data-table td {
+    padding: 6px 10px;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+  }
+  table.data-table th:first-child, table.data-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+  table.data-table th {
+    font-family: ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    position: sticky; top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+  table.data-table td { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--ink-secondary); }
+  table.data-table tr.is-forecast td { color: var(--ink-muted); font-style: italic; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .swatch.cat-1 { background: var(--cat-1); }
+  .swatch.cat-2 { background: var(--cat-2); }
+  .swatch.cat-3 { background: var(--cat-3); }
+  .swatch.cat-4 { background: var(--cat-4); }
+  .swatch.cat-5 { background: var(--cat-5); }
+  .pos { color: var(--good); }
+  .neg { color: var(--critical); }
+  tr td.pos, tr td.neg { font-weight: 600; }
+  tr td.win { color: var(--accent); font-weight: 700; }
+
+  /* ---- indicator breakdown table ---- */
+  .indicator-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .indicator-table-wrap .table-scroll { border: none; border-radius: 0; background: none; }
+  table.indicator-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  table.indicator-table th, table.indicator-table td {
+    padding: 9px 16px; border-bottom: 1px solid var(--line); vertical-align: top;
+  }
+  table.indicator-table tbody tr:last-child td { border-bottom: none; }
+  table.indicator-table th {
+    text-align: left; font-family: ui-monospace, monospace; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted);
+    font-weight: 600; white-space: nowrap; background: var(--surface);
+  }
+  table.indicator-table td:nth-child(2), table.indicator-table td:nth-child(3),
+  table.indicator-table th:nth-child(2), table.indicator-table th:nth-child(3) {
+    text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  table.indicator-table td:first-child { font-weight: 600; }
+  table.indicator-table td.src { min-width: 220px; }
+  table.indicator-table .src-primary { font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-secondary); }
+  table.indicator-table .src-fallback { font-size: 10.5px; color: var(--ink-muted); margin-top: 2px; }
+  table.indicator-table code { font-size: 10.5px; }
+  table.indicator-table .ind-name { font-weight: 600; white-space: nowrap; }
+  table.indicator-table .ind-desc { font-weight: 400; font-size: 11px; color: var(--ink-muted); margin-top: 2px; max-width: 30ch; white-space: normal; line-height: 1.4; }
+  table.indicator-table tr.inactive-row td { color: var(--ink-muted); }
+  table.indicator-table tr.inactive-row .ind-name { font-weight: 500; }
+  table.indicator-table tr.inactive-row .src-primary { color: var(--ink-muted); }
+
+  .missing-note {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .missing-note b { color: var(--ink); }
+  .missing-note ul { margin: 8px 0 0; padding-left: 18px; }
+  .missing-note li { margin-bottom: 4px; line-height: 1.5; }
+
+  .backtest-table { width: 100%; max-width: 480px; border-collapse: collapse; font-size: 12.5px; }
+  .backtest-table th, .backtest-table td { padding: 7px 4px; border-bottom: 1px solid var(--line); }
+  .backtest-table th { text-align: right; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
+  .backtest-table th:first-child { text-align: left; }
+  .backtest-table td { text-align: right; }
+  .backtest-table td:first-child { text-align: left; color: var(--ink-secondary); }
+  .backtest-table .note { display: block; font-size: 10px; color: var(--ink-muted); font-family: ui-monospace, monospace; }
+
+  /* ---- methodology ---- */
+  .methodology { border-top: 1px solid var(--line); padding-top: 20px; }
+  .method-body { margin-top: 14px; font-size: 12.5px; line-height: 1.7; color: var(--ink-secondary); max-width: 74ch; }
+  .method-body b { color: var(--ink); }
+  .weights-table { border-collapse: collapse; margin: 14px 0; width: 100%; max-width: 420px; }
+  .weights-table th, .weights-table td { font-family: ui-monospace, monospace; font-size: 11.5px; padding: 4px 10px 4px 0; text-align: left; border-bottom: 1px solid var(--line); }
+  .weights-table th { color: var(--ink); }
+  .weights-table td.num { text-align: right; padding-right: 0; }
+  .warn {
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .disclaimer {
+    font-size: 11px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .now-card, .panel { transition: border-color 0.15s ease; }
+  }
+
+  /* ---- print: both tabs render sequentially into one PDF ---- */
+  @media print {
+    @page { size: 17in 11in; margin: 0.45in; }
+    /* Force the light palette regardless of system/headless dark-mode preference —
+       PDFs are read on white paper. Re-declared here (not just color-scheme) because
+       color-scheme alone only affects native form-control chrome, not these custom
+       properties. */
+    :root {
+      color-scheme: light;
+      --page-bg: #eeece4; --surface: #fcfcfb; --surface-raised: #ffffff;
+      --ink: #0b0b0b; --ink-secondary: #52514e; --ink-muted: #898781;
+      --line: #e1e0d9; --axis: #c3c2b7; --accent: #8a5a2b;
+      --accent-soft: rgba(138,90,43,0.12); --good: #0ca30c; --critical: #d03b3b;
+      --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100; --cat-5: #e87ba4;
+      --residual: #898781;
+      --shadow: 0 1px 2px rgba(20,18,12,0.04), 0 8px 24px -12px rgba(20,18,12,0.12);
+    }
+    body { padding: 0; background: #eeece4 !important; }
+    .tabs { display: none !important; }
+    /* flex + gap combined with a forced page-break reliably produces a stray blank
+       page in Chromium's print fragmentation — switch to block+margin for print,
+       which doesn't have that bug. */
+    .page, .tab-panel { display: block !important; }
+    .page > * { margin-bottom: 30px; }
+    .tab-panel > * { margin-bottom: 30px; }
+    .tab-panel > *:last-child { margin-bottom: 0; }
+    .tab-panel, .tab-panel[hidden] { display: block !important; }
+    #tabMemo { break-before: page; page-break-before: always; margin-top: 0; padding-top: 0.1in; }
+    .tooltip { display: none !important; }
+    .table-toggle, .method-toggle, #tableWrap, #methBody { display: none !important; }
+    .chart-scroll { overflow: visible; }
+    .chart-card, .indicator-table-wrap, .hero, .panel, .memo-page {
+      box-shadow: none !important;
+      break-inside: avoid;
+    }
+    .assessment { break-inside: avoid; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="masthead-row">
+      <span class="eyebrow">Macro Research &middot; Nowcasting Desk</span>
+      <span class="asof mono">data through 2026-01 &middot; 48 quarters modeled</span>
+    </div>
+    <h1 class="title">Global GDP Nowcast</h1>
+    <p class="subtitle">A running read on world real GDP growth, updated from trade, factory output, consumer,
+      and financial-market data as it's published each month.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab-btn" id="tabBtnDashboard" role="tab" aria-selected="true" aria-controls="tabDashboard">Dashboard</button>
+    <button class="tab-btn" id="tabBtnMemo" role="tab" aria-selected="false" aria-controls="tabMemo">Memo</button>
+  </div>
+
+  <div class="tab-panel" id="tabDashboard" role="tabpanel">
+
+  <section class="assessment">
+    <div class="eyebrow">The Assessment</div>
+    <p>The global economy looks set to grow at an annualized <b>+4.0%</b> pace in Q2 2026 &mdash; modestly above its longer-run 3.6% trend, and an acceleration from the 3.0% pace booked in Q1 2026. Consumers are spending more, while factory output is pulling back. The model expects growth to hold roughly steady over the following quarters. This is an estimate one quarter ahead of the last confirmed GDP print, so it is best read as a directional signal on where the economy is heading rather than a precise forecast.</p>
+  </section>
+
+  <section class="hero">
+    <div class="hero-figure">
+      <div class="hero-label mono">Nowcast &middot; Q2 2026</div>
+      <div class="hero-value">+4.0%</div>
+      <div class="hero-caption">annualized, world real GDP &middot; <span class="pill">one quarter ahead of last confirmed print</span></div>
+    </div>
+    <div class="hero-model">
+      <div class="model-badge"><span class="dot"></span>Elastic-net model <span class="badge-tag">in use</span></div>
+      <p class="model-desc">Global growth is tracked with two competing statistical models; this one was picked
+        because it has predicted actual GDP prints more accurately over the past decade &mdash; including during
+        downturns &mdash; than the alternative.</p>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><div class="v mono">0.94</div><div class="l">Model fit (R&sup2;)</div></div>
+      <div class="stat"><div class="v mono">3.0pp</div><div class="l">Typical miss</div></div>
+      <div class="stat"><div class="v mono">7/20</div><div class="l">Indicators in use</div></div>
+    </div>
+  </section>
+
+  <section class="chart-section">
+    <div class="section-head">
+      <h2>Drivers of growth, by quarter</h2>
+      <p>How each group of indicators has pushed growth above or below its +3.61pp long-run trend, quarter
+        by quarter &middot; the line is actual GDP growth &middot; Q2 2015&ndash;Q1 2027
+        &middot; hatched bars are forecast quarters. 2020's COVID collapse and rebound are so large they'd flatten
+        every other quarter on this scale &mdash; arrows mark where the chart runs off the edge; hover any bar for
+        exact figures.</p>
+    </div>
+    <div class="chart-card">
+      <div class="chart-scroll">
+        <svg id="chart" role="img" aria-label="Stacked bar chart of GDP growth drivers by quarter, with a line for actual GDP growth"></svg>
+      </div>
+      <div id="tooltip" class="tooltip" hidden></div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <button class="table-toggle" id="tableToggle" aria-expanded="false">+ View underlying data as a table</button>
+    <div class="table-wrap" id="tableWrap" hidden>
+      <div class="table-scroll"><table id="dataTable" class="data-table"></table></div>
+    </div>
+  </section>
+
+  <section class="chart-section">
+    <div class="section-head">
+      <h2>Same chart, 2022 onward</h2>
+      <p>The same view, zoomed into 2022 onward. With the COVID-era swings out of frame, the recent growth cycle
+        is easier to read.</p>
+    </div>
+    <div class="chart-card">
+      <div class="chart-scroll">
+        <svg id="chart2022" role="img" aria-label="Stacked bar chart of GDP growth drivers by quarter, 2022 onward, with a line for actual GDP growth"></svg>
+      </div>
+      <div id="tooltip2022" class="tooltip" hidden></div>
+    </div>
+    <div class="legend" id="legend2022"></div>
+  </section>
+
+  <section class="chart-section">
+    <div class="section-head">
+      <h2>This quarter&rsquo;s breakdown, by indicator</h2>
+      <p>Q2 2026 nowcast &middot; every indicator in the panel, ranked by how much it has typically moved
+        the headline number over the past 44 quarters &middot; the +3.61pp long-run trend
+        applies on top of every row below and isn&rsquo;t attributable to any one indicator &middot; the model in
+        use currently leans on <b>7 of 20</b> indicators &mdash; the other 13,
+        dimmed below, are tracked but aren&rsquo;t currently moving the estimate.</p>
+    </div>
+    <div class="indicator-table-wrap">
+      <div class="table-scroll">
+        <table class="indicator-table">
+          <thead><tr><th>Indicator</th><th>Q2 2026</th><th>Typical impact</th><th>Source</th></tr></thead>
+          <tbody>
+<tr class="">
+        <td><div class="ind-name">Industrial production</div><div class="ind-desc">World industrial production, 3-month annualized growth.</div></td>
+        <td class="mono num neg">-0.49pp</td>
+        <td class="mono num">1.75pp</td>
+        <td class="src"><div class="src-primary">Haver <code>S001XDG@G10</code></div><div class="src-fallback">fallback: CPB World Trade Monitor</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Jobless claims (falling = +)</div><div class="ind-desc">US initial jobless claims, sign-flipped YoY % change so + = claims falling.</div></td>
+        <td class="mono num pos">+0.26pp</td>
+        <td class="mono num">0.70pp</td>
+        <td class="src"><div class="src-primary">Haver <code>LICM@USECON</code></div><div class="src-fallback">fallback: FRED ICSA</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Retail sales</div><div class="ind-desc">OECD total retail trade volume, 3-month annualized growth.</div></td>
+        <td class="mono num pos">+0.61pp</td>
+        <td class="mono num">0.65pp</td>
+        <td class="src"><div class="src-primary">Haver <code>C003ROI@OECDMEI</code></div><div class="src-fallback">fallback: FRED SLRTTO01OEQ659S</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Bank lending standards (easing = +)</div><div class="ind-desc">Fed Senior Loan Officer Survey, net % of banks tightening C&I loan standards, sign-flipped so + = easing.</div></td>
+        <td class="mono num pos">+0.03pp</td>
+        <td class="mono num">0.18pp</td>
+        <td class="src"><div class="src-primary">Haver <code>LCIQ157@BCI</code></div><div class="src-fallback">fallback: FRED DRTSCILM</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">EM / sovereign spread proxy</div><div class="ind-desc">JPMorgan EMBI Global sovereign spread, YoY change (bp), sign-flipped so + = spreads tightening.</div></td>
+        <td class="mono num neg">-0.06pp</td>
+        <td class="mono num">0.04pp</td>
+        <td class="src"><div class="src-primary">Haver <code>GS@EMBI</code></div><div class="src-fallback">fallback: yfinance EEM</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Yield curve (10y-2y)</div><div class="ind-desc">10-year minus 2-year US Treasury yield spread &mdash; classic recession-leading indicator.</div></td>
+        <td class="mono num pos">+0.02pp</td>
+        <td class="mono num">0.03pp</td>
+        <td class="src"><div class="src-primary">Haver <code>FCM10@USECON &minus; FCM2@USECON</code></div><div class="src-fallback">fallback: FRED T10Y2Y</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Bank equity index</div><div class="ind-desc">KBW Bank Index, YoY % change &mdash; bank-sector health/stress proxy.</div></td>
+        <td class="mono num neg">-0.03pp</td>
+        <td class="mono num">0.02pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SPKBW@USECON</code></div><div class="src-fallback">fallback: yfinance ^BKX</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Composite PMI</div><div class="ind-desc">S&P Global Composite PMI (business survey); readings above 50 = expansion.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SGBLVPTG@INTSRVYS</code></div><div class="src-fallback">fallback: OECD Composite Leading Indicator</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Trade volumes</div><div class="ind-desc">World trade volume, 3-month annualized growth.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>S001IQXM@G10</code></div><div class="src-fallback">fallback: CPB World Trade Monitor</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Oil price shock</div><div class="ind-desc">Brent crude spot price, year-over-year % change.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>PEOBR@WBPRICES</code></div><div class="src-fallback">fallback: FRED DCOILBRENTEU / yfinance BZ=F</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Financial conditions</div><div class="ind-desc">Chicago Fed National Financial Conditions Index, sign-flipped so + = easier conditions.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>NFCIM1@BCI</code></div><div class="src-fallback">fallback: FRED NFCI / yfinance ^VIX</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">AI / tech capex</div><div class="ind-desc">Philadelphia Semiconductor Index, YoY % change &mdash; tech/chip-demand proxy.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SPSOX@DAILY</code></div><div class="src-fallback">fallback: yfinance ^SOX</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Copper (Dr. Copper)</div><div class="ind-desc">LME copper price (nicknamed Dr. Copper), YoY % change &mdash; global industrial-demand proxy.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>PNMCOP@WBPRICES</code></div><div class="src-fallback">fallback: FRED PCOPPUSDM / yfinance HG=F</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">USD index (easing = +)</div><div class="ind-desc">Broad trade-weighted USD index, sign-flipped YoY so + = dollar easing.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>FXTWBDI@USECON</code></div><div class="src-fallback">fallback: FRED DTWEXBGS / yfinance DX-Y.NYB</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">VIX (calm = +)</div><div class="ind-desc">CBOE Volatility Index (VIX), sign-flipped z-score so + = calm markets.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SPVIX@USECON</code></div><div class="src-fallback">fallback: yfinance ^VIX</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Equity market performance</div><div class="ind-desc">S&P 500 Composite, YoY % change &mdash; US proxy for global equity markets.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SP5COM@SPD</code></div><div class="src-fallback">fallback: yfinance ^GSPC</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Housing prices</div><div class="ind-desc">Case-Shiller US National Home Price Index, YoY % change.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>CASUSXAM@USECON</code></div><div class="src-fallback">fallback: FRED CSUSHPINSA</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Consumer confidence</div><div class="ind-desc">OECD total consumer confidence index, de-meaned level.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>C003CCE@OECDMEI</code></div><div class="src-fallback">fallback: FRED CSCICP03O9M665S</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">Business confidence</div><div class="ind-desc">OECD total manufacturing/industrial confidence index, de-meaned level.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Haver <code>C003BMA@OECDMEI</code></div><div class="src-fallback">fallback: FRED BSCICP03O9M665S</div></td>
+      </tr>
+<tr class="inactive-row">
+        <td><div class="ind-name">COVID stringency (less strict = +)</div><div class="ind-desc">Oxford COVID-19 Government Response Stringency Index, sign-flipped so + = less restrictive.</div></td>
+        <td class="mono num ">+0.00pp</td>
+        <td class="mono num">0.00pp</td>
+        <td class="src"><div class="src-primary">Oxford OxCGRT (static historical CSV)</div></td>
+      </tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+<div class="missing-note">
+      <b>2 of 22 tracked indicators aren&rsquo;t in this run&rsquo;s panel at all</b>
+      (distinct from the dimmed rows above, which the model just isn&rsquo;t currently weighting):
+      <ul><li><b>Credit spreads (HY OAS)</b> (credit) &mdash; Haver history for this series only goes back to 2012 &mdash; shorter than the panel's 2005 start, so it's dropped rather than truncating every other indicator's usable history to match.</li><li><b>Leverage / credit-to-GDP</b> (leverage) &mdash; the underlying series (US private nonfinancial credit-to-GDP) appears to have stopped updating as of late 2025 &mdash; treated as discontinued and dropped rather than carried forward stale.</li></ul>
+    </div>
+  </section>
+
+  <div class="panel backtest">
+    <h2>Model comparison</h2>
+    <p>Average miss vs. actual GDP prints, testing each model on data it hadn&rsquo;t seen &middot; lower is better
+      &middot; bold = more accurate</p>
+    <table class="backtest-table">
+      <thead><tr><th>Period</th><th>Factor model</th><th>Elastic-net model (in use)</th></tr></thead>
+      <tbody>
+<tr>
+        <td>Normal quarters<span class="note">66 quarters</span></td>
+        <td class="mono num ">1.57pp</td>
+        <td class="mono num win">1.50pp</td>
+      </tr>
+<tr>
+        <td>Stress periods<span class="note">7 quarters</span></td>
+        <td class="mono num ">13.95pp</td>
+        <td class="mono num win">8.41pp</td>
+      </tr>
+<tr>
+        <td>Overall</td>
+        <td class="mono num ">4.57pp</td>
+        <td class="mono num win">2.97pp</td>
+      </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <section class="methodology">
+    <button class="method-toggle" id="methToggle" aria-expanded="false">+ Methodology &amp; caveats</button>
+    <div class="method-body" id="methBody" hidden>
+      <p><b>The data.</b> Up to 22 monthly indicators &mdash; business surveys, trade and
+        factory output, an oil-price gauge, financial-market and credit conditions, tech/chip demand, housing,
+        jobless claims, retail sales, and confidence surveys &mdash; pulled primarily from Haver Analytics, with
+        FRED, yfinance, OECD, IMF, and the World Bank as fallbacks when a source is unavailable
+        (<code>py/01_build_panel_real.py</code>). A single broken source drops that one indicator rather than
+        blocking the update &mdash; this run pulled <b>20 of 22</b> live;
+        the rest were temporarily unreachable (no Haver subscription configured, and the free FRED endpoint was
+        rate-limited) and were skipped rather than filled with stale numbers.</p>
+      <p><b>The models.</b> Two statistical approaches compete to predict GDP growth from that panel: a factor
+        model that condenses the whole panel into a few underlying trends, and an elastic-net regression that
+        picks a small, stable set of indicators directly. <code>04_backtest.py</code> tests both against history
+        and <code>05_export.py</code> publishes whichever wins &mdash; currently the <b>elastic-net model</b>
+        (see the comparison above). 7 of the 20 indicators available this cycle are
+        currently meaningful drivers of the estimate, shown below with their fitted weights.</p>
+      <table class="weights-table">
+        <thead><tr><th>Indicator</th><th>Weight</th></tr></thead>
+        <tbody>
+<tr><td>Industrial production</td><td class="mono num pos">+3.8887</td></tr>
+<tr><td>Retail sales</td><td class="mono num pos">+1.8802</td></tr>
+<tr><td>Jobless claims (falling = +)</td><td class="mono num pos">+1.4361</td></tr>
+<tr><td>Bank lending standards (easing = +)</td><td class="mono num neg">-0.2772</td></tr>
+<tr><td>EM / sovereign spread proxy</td><td class="mono num neg">-0.0902</td></tr>
+<tr><td>Yield curve (10y-2y)</td><td class="mono num neg">-0.0435</td></tr>
+<tr><td>Bank equity index</td><td class="mono num neg">-0.0279</td></tr>
+<tr><td>Composite PMI</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Trade volumes</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Oil price shock</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Financial conditions</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>AI / tech capex</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Copper (Dr. Copper)</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>USD index (easing = +)</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>VIX (calm = +)</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Equity market performance</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Housing prices</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Consumer confidence</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Business confidence</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>COVID stringency (less strict = +)</td><td class="mono num pos">+0.0000</td></tr>
+
+        </tbody>
+      </table>
+      <div class="warn">
+        <b>Two caveats worth flagging.</b><br/>
+        1) A near-zero weight is a stability choice, not evidence that indicator is irrelevant to global growth
+        &mdash; every indicator is re-tested each cycle and can start mattering again as conditions change.<br/><br/>
+        2) The factor model is the more transparent of the two about <i>why</i> growth moved; the elastic-net
+        model is optimized purely to predict, not to explain. Which one is "in use" above is decided purely by
+        recent accuracy and can flip between runs &mdash; it did this run.
+      </div>
+    </div>
+  </section>
+
+  <footer class="disclaimer">Illustrative model output, not an official or investment forecast. Full estimation
+    and data-pipeline code (<code>py/01_build_panel_real.py</code> through <code>py/05_export.py</code>) ships
+    alongside this pipeline; rerun it any time to refresh every number on this page.</footer>
+
+  </div>
+
+  <div class="tab-panel" id="tabMemo" role="tabpanel" hidden>
+
+    <div class="memo-page">
+      <div class="memo-head">
+        <div class="memo-kicker">Memorandum</div>
+        <h2 class="memo-title">Global Growth Nowcast</h2>
+        <div class="memo-meta"><span><b>Re:</b> World real GDP, Q2 2026</span><span><b>Date:</b> August 19, 2026</span></div>
+      </div>
+
+      <p>World GDP growth in Q2 2026 is tracking at an annualized <b>+4.0 percent</b>,
+      modestly above the global economy&rsquo;s 3.6 percent
+      long-run trend, and an acceleration from the 3.0 percent pace booked in Q1 2026. The improvement is concentrated in
+      stronger consumer spending and a resilient labor market,
+      only partly offset by softer industrial production. This is a
+      <b>nowcast</b> &mdash; a real-time estimate built from monthly data &mdash; not the official GDP figure, which
+      will not be confirmed for several more months.</p>
+
+      <h3>Why We Nowcast</h3>
+      <p>Governments report GDP quarterly, and the final figure for a given quarter is typically not confirmed until
+      well after that quarter has ended; for a global, PPP-weighted aggregate like this one, confirmation lags
+      further still, since it depends on every major economy having reported. By the time the official number
+      arrives, it is too stale to inform a near-term decision. A nowcast closes that gap by tracking the economy in
+      real time, using monthly data that arrives faster than GDP itself &mdash; business surveys, trade flows,
+      factory output, jobless claims, retail sales, and financial-market indicators. None of these series is GDP,
+      but together they move closely with it and are available weeks to months sooner.</p>
+
+      <h3>How We Build the Estimate</h3>
+      <p>We combine roughly 20 monthly indicators &mdash; spanning trade, industrial activity, the
+      labor market, consumer spending, and financial conditions &mdash; into a single statistical estimate of GDP
+      growth. Two different modeling approaches are tested side by side against more than a decade of history,
+      including the 2008 financial crisis and the 2020 pandemic, and we use whichever has actually predicted GDP
+      more accurately, quarter by quarter, rather than committing in advance to one method. That comparison is
+      re-run every time the estimate is refreshed, so the model in use can change &mdash; and has changed, in past
+      refreshes &mdash; as conditions change.</p>
+
+      <h3>The Data</h3>
+      <p>Data is drawn primarily from Haver Analytics, a professional economic-data platform, with the Federal
+      Reserve, the OECD, the IMF, and other public sources as fallbacks when a series is unavailable. We favor data
+      that is genuinely monthly, so it updates faster than GDP; available with only a short lag; and has a long,
+      consistent history, so it can be tested against past recessions and recoveries rather than only recent, calmer
+      periods. Two series &mdash; Credit spreads and Leverage / credit-to-GDP &mdash; are sitting out this update because their available history is either too short or has stopped updating; both are re-tested every cycle and will return automatically once the data resumes.</p>
+
+      <h3>What the Results Are Telling Us</h3>
+      <p>The headline number &mdash; +4.0 percent for Q2 2026 &mdash; is a read on
+      the current quarter, not a distant forecast: it sits just one quarter beyond Q1 2026,
+      the last quarter with a confirmed GDP print, so it is built on real monthly data that has already come in for
+      Q2 2026, not a long-range guess. The chart on the Dashboard tab also carries the estimate several
+      quarters further out, to show where the model expects growth to head next, but those later quarters are
+      extrapolated rather than grounded in incoming data and should be weighted less heavily than this one.</p>
+      <p>Even this quarter&rsquo;s number is an estimate, not a confirmed figure: historically, this model&rsquo;s
+      GDP estimates have missed the actual print by about 3 percentage points on
+      average, so the exact decimal matters less than the direction and rough magnitude it points to &mdash; growth
+      running above trend and accelerating from last quarter, not the reverse.</p>
+
+      <h3>Key Drivers of Growth</h3>
+      <p>Consumer spending, measured through retail sales, is the single largest positive contributor this quarter &mdash; households are spending more, not less.
+       The labor market is the next-largest positive contributor: jobless claims are falling, a sign employers are not yet cutting workers despite the slowdown elsewhere.
+       That slowdown shows up directly: industrial production is the largest single drag this quarter, even as the positive drivers outweigh it.
+      Smaller movements in bank lending conditions, emerging-market borrowing costs, and bank equities round out the
+      picture but are not currently decisive.</p>
+
+      <h3>Bottom Line</h3>
+      <p>The economy is growing faster than its long-run trend, carried by the consumer and the labor market even as
+      manufacturing cools. We will continue to update this estimate monthly as new data arrives and will flag if the
+      balance of drivers shifts.</p>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const RAW_DATA = [{"q":"2015-04","pmi":-0.0,"trade":-0.0,"ip":-0.847,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.027,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":-0.002,"lending_standards":-0.126,"em_spread":0.064,"housing":0.0,"jobless_claims":0.294,"retail_sales":0.028,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.996,"actual":3.544,"residual":0.548,"is_forecast":false},{"q":"2015-07","pmi":-0.0,"trade":-0.0,"ip":-0.306,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.026,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.001,"lending_standards":-0.146,"em_spread":0.094,"housing":0.0,"jobless_claims":0.264,"retail_sales":0.248,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.742,"actual":3.282,"residual":-0.46,"is_forecast":false},{"q":"2015-10","pmi":-0.0,"trade":-0.0,"ip":-0.845,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.018,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.004,"lending_standards":0.026,"em_spread":0.052,"housing":0.0,"jobless_claims":0.247,"retail_sales":-0.34,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.739,"actual":2.484,"residual":-0.255,"is_forecast":false},{"q":"2016-01","pmi":-0.0,"trade":-0.0,"ip":-0.094,"oil":-0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.006,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.017,"lending_standards":0.035,"em_spread":0.045,"housing":0.0,"jobless_claims":0.246,"retail_sales":0.124,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.98,"actual":3.434,"residual":-0.545,"is_forecast":false},{"q":"2016-04","pmi":-0.0,"trade":-0.0,"ip":-0.762,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.001,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.017,"lending_standards":0.076,"em_spread":0.034,"housing":0.0,"jobless_claims":0.219,"retail_sales":-0.1,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.096,"actual":3.123,"residual":0.027,"is_forecast":false},{"q":"2016-07","pmi":-0.0,"trade":0.0,"ip":-0.108,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.006,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.013,"lending_standards":0.039,"em_spread":-0.031,"housing":0.0,"jobless_claims":0.238,"retail_sales":0.043,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.813,"actual":3.463,"residual":-0.35,"is_forecast":false},{"q":"2016-10","pmi":-0.0,"trade":0.0,"ip":0.336,"oil":0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":-0.007,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":-0.005,"lending_standards":-0.045,"em_spread":-0.038,"housing":0.0,"jobless_claims":0.241,"retail_sales":0.21,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.304,"actual":3.628,"residual":-0.676,"is_forecast":false},{"q":"2017-01","pmi":-0.0,"trade":0.0,"ip":-0.02,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.011,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.041,"lending_standards":-0.046,"em_spread":-0.094,"housing":0.0,"jobless_claims":0.304,"retail_sales":0.014,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.72,"actual":3.788,"residual":0.068,"is_forecast":false},{"q":"2017-04","pmi":0.0,"trade":0.0,"ip":0.715,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.0,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.029,"lending_standards":-0.096,"em_spread":-0.062,"housing":0.0,"jobless_claims":0.275,"retail_sales":0.06,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.476,"actual":4.384,"residual":-0.092,"is_forecast":false},{"q":"2017-07","pmi":0.0,"trade":-0.0,"ip":0.52,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.004,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.031,"lending_standards":-0.109,"em_spread":-0.03,"housing":0.0,"jobless_claims":0.183,"retail_sales":0.082,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.232,"actual":4.445,"residual":0.213,"is_forecast":false},{"q":"2017-10","pmi":0.0,"trade":0.0,"ip":0.53,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.013,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.019,"lending_standards":-0.164,"em_spread":-0.034,"housing":0.0,"jobless_claims":0.213,"retail_sales":0.318,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.471,"actual":4.02,"residual":-0.451,"is_forecast":false},{"q":"2018-01","pmi":0.0,"trade":-0.0,"ip":0.136,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.017,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.013,"lending_standards":-0.182,"em_spread":-0.017,"housing":0.0,"jobless_claims":0.213,"retail_sales":-0.815,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.953,"actual":4.299,"residual":1.346,"is_forecast":false},{"q":"2018-04","pmi":0.0,"trade":-0.0,"ip":0.018,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.024,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.011,"lending_standards":-0.197,"em_spread":0.024,"housing":0.0,"jobless_claims":0.253,"retail_sales":0.196,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.919,"actual":3.57,"residual":-0.349,"is_forecast":false},{"q":"2018-07","pmi":0.0,"trade":0.0,"ip":-0.542,"oil":0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.033,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.008,"lending_standards":-0.252,"em_spread":0.046,"housing":0.0,"jobless_claims":0.358,"retail_sales":-0.271,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.976,"actual":2.891,"residual":-0.085,"is_forecast":false},{"q":"2018-10","pmi":-0.0,"trade":-0.0,"ip":-0.906,"oil":0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.034,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.011,"lending_standards":-0.252,"em_spread":0.07,"housing":0.0,"jobless_claims":0.268,"retail_sales":-0.226,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.612,"actual":2.102,"residual":-0.51,"is_forecast":false},{"q":"2019-01","pmi":-0.0,"trade":-0.0,"ip":-0.857,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.037,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.02,"lending_standards":-0.029,"em_spread":0.058,"housing":-0.0,"jobless_claims":0.222,"retail_sales":-0.152,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.912,"actual":3.572,"residual":0.66,"is_forecast":false},{"q":"2019-04","pmi":-0.0,"trade":-0.0,"ip":-0.25,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.035,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.016,"lending_standards":-0.113,"em_spread":0.021,"housing":-0.0,"jobless_claims":0.199,"retail_sales":0.259,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.78,"actual":4.305,"residual":0.526,"is_forecast":false},{"q":"2019-07","pmi":-0.0,"trade":-0.0,"ip":-1.169,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.039,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.016,"lending_standards":-0.096,"em_spread":-0.009,"housing":-0.0,"jobless_claims":0.179,"retail_sales":0.254,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.829,"actual":3.176,"residual":0.347,"is_forecast":false},{"q":"2019-10","pmi":-0.0,"trade":-0.0,"ip":-1.533,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.035,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.005,"lending_standards":0.002,"em_spread":-0.056,"housing":-0.0,"jobless_claims":0.174,"retail_sales":-0.609,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":1.621,"actual":1.099,"residual":-0.522,"is_forecast":false},{"q":"2020-01","pmi":-0.0,"trade":-0.0,"ip":-5.747,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.032,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.007,"lending_standards":-0.063,"em_spread":-0.007,"housing":0.0,"jobless_claims":-3.242,"retail_sales":-1.445,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":-6.853,"actual":-12.889,"residual":-6.037,"is_forecast":false},{"q":"2020-04","pmi":-0.0,"trade":-0.0,"ip":-11.922,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.022,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.031,"lending_standards":0.433,"em_spread":0.104,"housing":0.0,"jobless_claims":-9.491,"retail_sales":-2.646,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":-19.856,"actual":-21.349,"residual":-1.492,"is_forecast":false},{"q":"2020-07","pmi":-0.0,"trade":0.0,"ip":23.889,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.021,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":0.028,"lending_standards":0.787,"em_spread":0.033,"housing":0.0,"jobless_claims":-3.217,"retail_sales":10.986,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":36.141,"actual":38.899,"residual":2.757,"is_forecast":false},{"q":"2020-10","pmi":0.0,"trade":0.0,"ip":5.708,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.012,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":0.025,"lending_standards":0.387,"em_spread":0.037,"housing":0.0,"jobless_claims":-2.062,"retail_sales":-0.048,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":7.671,"actual":9.116,"residual":1.444,"is_forecast":false},{"q":"2021-01","pmi":0.0,"trade":0.0,"ip":0.653,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.01,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.015,"lending_standards":0.003,"em_spread":-0.023,"housing":0.0,"jobless_claims":-1.212,"retail_sales":0.882,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":3.891,"actual":3.679,"residual":-0.211,"is_forecast":false},{"q":"2021-04","pmi":0.0,"trade":-0.0,"ip":3.23,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.021,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.069,"lending_standards":-0.243,"em_spread":-0.136,"housing":0.0,"jobless_claims":0.885,"retail_sales":2.192,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":9.452,"actual":3.915,"residual":-5.537,"is_forecast":false},{"q":"2021-07","pmi":0.0,"trade":-0.0,"ip":-1.243,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.006,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.06,"lending_standards":-0.449,"em_spread":-0.048,"housing":0.0,"jobless_claims":0.747,"retail_sales":-0.501,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":2.053,"actual":6.351,"residual":4.298,"is_forecast":false},{"q":"2021-10","pmi":0.0,"trade":0.0,"ip":1.631,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.002,"usd":-0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.051,"lending_standards":-0.28,"em_spread":-0.013,"housing":0.0,"jobless_claims":0.798,"retail_sales":0.486,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":6.182,"actual":7.326,"residual":1.144,"is_forecast":false},{"q":"2022-01","pmi":0.0,"trade":-0.0,"ip":0.835,"oil":0.0,"fin":0.0,"ai":-0.0,"copper":0.0,"yield_curve":0.022,"usd":-0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.016,"lending_standards":-0.235,"em_spread":0.038,"housing":0.0,"jobless_claims":0.805,"retail_sales":-0.19,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":4.871,"actual":1.677,"residual":-3.194,"is_forecast":false},{"q":"2022-04","pmi":0.0,"trade":-0.0,"ip":-1.229,"oil":0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.035,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.018,"lending_standards":-0.08,"em_spread":0.063,"housing":0.0,"jobless_claims":0.668,"retail_sales":-0.15,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":2.937,"actual":0.775,"residual":-2.162,"is_forecast":false},{"q":"2022-07","pmi":-0.0,"trade":0.0,"ip":-0.182,"oil":0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.057,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.022,"lending_standards":0.226,"em_spread":0.092,"housing":0.0,"jobless_claims":0.551,"retail_sales":-0.763,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":3.617,"actual":5.463,"residual":1.846,"is_forecast":false},{"q":"2022-10","pmi":-0.0,"trade":-0.0,"ip":-2.015,"oil":0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.071,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.031,"lending_standards":0.404,"em_spread":0.071,"housing":0.0,"jobless_claims":0.311,"retail_sales":-0.803,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":1.683,"actual":2.258,"residual":0.575,"is_forecast":false},{"q":"2023-01","pmi":0.0,"trade":-0.0,"ip":-1.18,"oil":-0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.077,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.03,"lending_standards":0.472,"em_spread":0.015,"housing":-0.0,"jobless_claims":0.219,"retail_sales":-0.008,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.238,"actual":3.564,"residual":0.326,"is_forecast":false},{"q":"2023-04","pmi":0.0,"trade":-0.0,"ip":-1.502,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.076,"usd":0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.035,"lending_standards":0.486,"em_spread":0.009,"housing":-0.0,"jobless_claims":0.104,"retail_sales":-0.207,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.613,"actual":3.058,"residual":0.445,"is_forecast":false},{"q":"2023-07","pmi":0.0,"trade":-0.0,"ip":-0.472,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.08,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":0.028,"lending_standards":0.543,"em_spread":-0.057,"housing":-0.0,"jobless_claims":0.103,"retail_sales":-0.319,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.519,"actual":4.317,"residual":0.798,"is_forecast":false},{"q":"2023-10","pmi":0.0,"trade":-0.0,"ip":-0.838,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.061,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":0.025,"lending_standards":0.342,"em_spread":-0.043,"housing":0.0,"jobless_claims":0.167,"retail_sales":-0.546,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.782,"actual":2.45,"residual":-0.332,"is_forecast":false},{"q":"2024-01","pmi":0.0,"trade":-0.0,"ip":-0.948,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.06,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":0.011,"lending_standards":0.11,"em_spread":-0.039,"housing":0.0,"jobless_claims":0.197,"retail_sales":-0.382,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.623,"actual":3.536,"residual":0.913,"is_forecast":false},{"q":"2024-04","pmi":0.0,"trade":0.0,"ip":-0.483,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.062,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.023,"lending_standards":0.124,"em_spread":-0.059,"housing":0.0,"jobless_claims":0.216,"retail_sales":-0.217,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.232,"actual":3.483,"residual":0.251,"is_forecast":false},{"q":"2024-07","pmi":0.0,"trade":0.0,"ip":-0.663,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.048,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.027,"lending_standards":0.032,"em_spread":0.003,"housing":0.0,"jobless_claims":0.182,"retail_sales":0.391,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.58,"actual":3.844,"residual":0.264,"is_forecast":false},{"q":"2024-10","pmi":0.0,"trade":-0.0,"ip":-0.543,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.039,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.048,"lending_standards":-0.063,"em_spread":-0.03,"housing":-0.0,"jobless_claims":0.132,"retail_sales":0.153,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.253,"actual":3.722,"residual":0.468,"is_forecast":false},{"q":"2025-01","pmi":0.0,"trade":0.0,"ip":0.637,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.031,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.029,"lending_standards":0.011,"em_spread":-0.01,"housing":-0.0,"jobless_claims":0.147,"retail_sales":-0.158,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.241,"actual":2.433,"residual":-1.809,"is_forecast":false},{"q":"2025-04","pmi":0.0,"trade":-0.0,"ip":-0.031,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.022,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.014,"lending_standards":0.158,"em_spread":0.013,"housing":-0.0,"jobless_claims":0.152,"retail_sales":0.009,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.922,"actual":4.026,"residual":0.104,"is_forecast":false},{"q":"2025-07","pmi":0.0,"trade":0.0,"ip":-0.215,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.02,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.026,"lending_standards":0.051,"em_spread":-0.049,"housing":-0.0,"jobless_claims":0.194,"retail_sales":0.148,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.736,"actual":3.523,"residual":-0.213,"is_forecast":false},{"q":"2025-10","pmi":0.0,"trade":-0.0,"ip":-0.702,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.018,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.014,"lending_standards":0.015,"em_spread":-0.036,"housing":-0.0,"jobless_claims":0.196,"retail_sales":-0.261,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.829,"actual":3.326,"residual":0.497,"is_forecast":false},{"q":"2026-01","pmi":0.0,"trade":0.0,"ip":0.149,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.016,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.018,"lending_standards":0.001,"em_spread":-0.04,"housing":-0.0,"jobless_claims":0.224,"retail_sales":0.329,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.274,"actual":3.031,"residual":-1.242,"is_forecast":false},{"q":"2026-04","pmi":0.0,"trade":-0.0,"ip":-0.489,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.024,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.031,"lending_standards":0.034,"em_spread":-0.061,"housing":-0.0,"jobless_claims":0.256,"retail_sales":0.607,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.952,"actual":null,"residual":null,"is_forecast":true},{"q":"2026-07","pmi":0.0,"trade":-0.0,"ip":-0.045,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.023,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.025,"lending_standards":0.029,"em_spread":-0.044,"housing":-0.0,"jobless_claims":0.156,"retail_sales":-0.063,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.644,"actual":null,"residual":null,"is_forecast":true},{"q":"2026-10","pmi":0.0,"trade":-0.0,"ip":-0.004,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.022,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.02,"lending_standards":0.025,"em_spread":-0.032,"housing":-0.0,"jobless_claims":0.095,"retail_sales":0.007,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.706,"actual":null,"residual":null,"is_forecast":true},{"q":"2027-01","pmi":0.0,"trade":-0.0,"ip":-0.0,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.021,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.016,"lending_standards":0.021,"em_spread":-0.023,"housing":-0.0,"jobless_claims":0.058,"retail_sales":-0.001,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.673,"actual":null,"residual":null,"is_forecast":true}];
+const CATEGORIES = [{"name":"Core Activity","members":["pmi","trade","ip","retail_sales","consumer_conf","business_conf","jobless_claims"],"slot":"cat-1"},{"name":"Financial Conditions","members":["fin","vix","credit","yield_curve","usd","equity","bank_equity","lending_standards","em_spread"],"slot":"cat-2"},{"name":"Commodities & Tech","members":["oil","copper","ai"],"slot":"cat-3"},{"name":"Housing &amp; Credit","members":["housing","leverage"],"slot":"cat-4"},{"name":"COVID Stringency","members":["covid_stringency"],"slot":"cat-5"}];
+const TREND = 3.613;
+</script>
+
+<script>
+(function () {
+  const CAT_COLOR_VAR = { "cat-1": "--cat-1", "cat-2": "--cat-2", "cat-3": "--cat-3", "cat-4": "--cat-4", "cat-5": "--cat-5" };
+  const css = getComputedStyle(document.documentElement);
+  const cv = (name) => css.getPropertyValue(name).trim();
+  const QLABEL = { "01": "Q1", "04": "Q2", "07": "Q3", "10": "Q4" };
+  const quarterLabel = (q) => { const [y, m] = q.split("-"); return `${QLABEL[m] || m} ${y}`; };
+
+  function bucketRow(row) {
+    const out = {};
+    CATEGORIES.forEach(cat => {
+      const present = cat.members.filter(m => m in row);
+      let sum = 0;
+      present.forEach(m => { sum += (row[m] || 0); });
+      out[cat.name] = present.length ? Math.round(sum * 1000) / 1000 : 0;
+    });
+    out.residual = row.residual == null ? 0 : row.residual;
+    return out;
+  }
+
+  function renderChart(cfg) {
+  const rows = cfg.data.map((r, i) => ({ ...r, _b: bucketRow(r), _i: i }));
+  const firstForecastIdx = rows.findIndex(r => r.is_forecast);
+  const n = rows.length;
+
+  // ---- per-row true stack extents (unclipped) ----
+  rows.forEach(r => {
+    let posB = TREND, negB = TREND;
+    CATEGORIES.map(c => c.name).concat(["residual"]).forEach(key => {
+      const v = r._b[key] || 0;
+      if (v >= 0) posB += v; else negB += v;
+    });
+    r._posB = posB; r._negB = negB;
+  });
+
+  // ---- y-domain: excludes crisis-magnitude quarters (>15pp from trend) so
+  // the other ~45 quarters of genuine variation aren't flattened by the
+  // 2020 COVID shock/rebound. Excluded points are clipped + flagged below,
+  // never hidden — exact values stay in the tooltip and table view. ----
+  const OFFSCALE = 15;
+  const isOffscale = (r) => (r._posB - TREND) > OFFSCALE || (TREND - r._negB) > OFFSCALE ||
+    (r.actual != null && Math.abs(r.actual - TREND) > OFFSCALE) || Math.abs(r.fitted - TREND) > OFFSCALE;
+  rows.forEach(r => { r._offscale = isOffscale(r); });
+
+  let yMin = Infinity, yMax = -Infinity;
+  rows.filter(r => !r._offscale).forEach(r => {
+    yMax = Math.max(yMax, r._posB, TREND, r.fitted, r.actual != null ? r.actual : -Infinity);
+    yMin = Math.min(yMin, r._negB, TREND, r.fitted, r.actual != null ? r.actual : Infinity);
+  });
+  const pad = (yMax - yMin) * 0.12;
+  yMax += pad; yMin -= pad;
+  const clip = (v) => Math.max(yMin, Math.min(yMax, v));
+
+  function niceTicks(lo, hi, count) {
+    const span = hi - lo;
+    const raw = span / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    let step;
+    if (norm < 1.5) step = 1 * mag;
+    else if (norm < 3) step = 2 * mag;
+    else if (norm < 7) step = 5 * mag;
+    else step = 10 * mag;
+    const start = Math.ceil(lo / step) * step;
+    const ticks = [];
+    for (let t = start; t <= hi + 1e-9; t += step) ticks.push(Math.round(t * 100) / 100);
+    return ticks;
+  }
+  const yTicks = niceTicks(yMin, yMax, 5);
+
+  // ---- layout ----
+  const W = 1120, H = 440;
+  const M = { top: 16, right: 14, bottom: 34, left: 46 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+  const slot = plotW / n;
+  const barW = Math.max(4, Math.min(16, slot * 0.62));
+
+  const xC = (i) => M.left + i * slot + slot / 2;
+  const yS = (v) => M.top + (yMax - v) / (yMax - yMin) * plotH;
+
+  const svg = document.getElementById(cfg.svgId);
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  };
+
+  // defs: hatch pattern for forecast bars
+  const defs = el("defs", {});
+  const pattern = el("pattern", { id: "fx-hatch", width: 5, height: 5, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+  pattern.appendChild(el("line", { x1: 0, y1: 0, x2: 0, y2: 5, stroke: cv("--ink"), "stroke-width": 1.1, opacity: 0.22 }));
+  defs.appendChild(pattern);
+  svg.appendChild(defs);
+
+  // forecast shading + divider
+  if (firstForecastIdx > 0) {
+    const fx = M.left + firstForecastIdx * slot;
+    svg.appendChild(el("rect", { x: fx, y: M.top, width: W - M.right - fx, height: plotH, fill: cv("--ink"), opacity: 0.035 }));
+    svg.appendChild(el("line", { x1: fx, x2: fx, y1: M.top, y2: M.top + plotH, stroke: cv("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3" }));
+    const lbl = el("text", { x: fx + 5, y: M.top + 11, "font-size": 9.5, fill: cv("--ink-muted"), "font-style": "italic" });
+    lbl.textContent = "forecast \u2192";
+    svg.appendChild(lbl);
+  }
+
+  // gridlines + y ticks
+  yTicks.forEach(t => {
+    const y = yS(t);
+    svg.appendChild(el("line", { x1: M.left, x2: W - M.right, y1: y, y2: y, stroke: cv("--line"), "stroke-width": 1 }));
+    const lbl = el("text", { x: M.left - 8, y: y + 3, "text-anchor": "end", "font-size": 10, "font-family": "ui-monospace,monospace", fill: cv("--ink-muted") });
+    lbl.textContent = (t > 0 ? "+" : "") + t.toFixed(1);
+    svg.appendChild(lbl);
+  });
+
+  // zero line
+  if (yMin < 0 && yMax > 0) {
+    svg.appendChild(el("line", { x1: M.left, x2: W - M.right, y1: yS(0), y2: yS(0), stroke: cv("--axis"), "stroke-width": 1.2 }));
+  }
+  // trend line
+  const ty = yS(TREND);
+  svg.appendChild(el("line", { x1: M.left, x2: W - M.right, y1: ty, y2: ty, stroke: cv("--ink-secondary"), "stroke-width": 1.2, "stroke-dasharray": "2 3" }));
+
+  // x ticks (every 4th quarter)
+  rows.forEach((r, i) => {
+    if (i % 4 !== 0) return;
+    const lbl = el("text", { x: xC(i), y: H - M.bottom + 16, "text-anchor": "middle", "font-size": 9.5, "font-family": "ui-monospace,monospace", fill: cv("--ink-muted") });
+    lbl.textContent = quarterLabel(r.q) + (r.is_forecast ? "*" : "");
+    svg.appendChild(lbl);
+  });
+
+  // bars
+  const GAP = 1.6;
+  const barsGroup = el("g", {});
+  const catKeys = CATEGORIES.map(c => ({ key: c.name, color: cv(CAT_COLOR_VAR[c.slot]) })).concat([{ key: "residual", color: cv("--residual") }]);
+
+  rows.forEach((r, i) => {
+    let posB = TREND, negB = TREND;
+    const x = xC(i) - barW / 2;
+    catKeys.forEach(({ key, color }) => {
+      const v = r._b[key] || 0;
+      const opacity = r.is_forecast ? 0.55 : 1;
+      if (v > 0) {
+        const y1 = yS(clip(posB + v)), y2 = yS(clip(posB));
+        let hh = y2 - y1;
+        let yy = y1;
+        if (hh > GAP * 1.5) { yy += GAP / 2; hh -= GAP; }
+        if (hh > 0.4) {
+          barsGroup.appendChild(el("rect", { x, y: yy, width: barW, height: hh, fill: color, opacity, rx: 1.5 }));
+          if (r.is_forecast) barsGroup.appendChild(el("rect", { x, y: yy, width: barW, height: hh, fill: "url(#fx-hatch)", rx: 1.5 }));
+        }
+        posB += v;
+      } else if (v < 0) {
+        const y1 = yS(clip(negB)), y2 = yS(clip(negB + v));
+        let hh = y2 - y1;
+        let yy = y1;
+        if (hh > GAP * 1.5) { yy += GAP / 2; hh -= GAP; }
+        if (hh > 0.4) {
+          barsGroup.appendChild(el("rect", { x, y: yy, width: barW, height: hh, fill: color, opacity, rx: 1.5 }));
+          if (r.is_forecast) barsGroup.appendChild(el("rect", { x, y: yy, width: barW, height: hh, fill: "url(#fx-hatch)", rx: 1.5 }));
+        }
+        negB += v;
+      }
+    });
+  });
+  svg.appendChild(barsGroup);
+
+  // ---- off-scale markers: chevron + true-value label for quarters clipped
+  // by the crisis-magnitude y-domain above ----
+  const offscaleGroup = el("g", {});
+  rows.forEach((r, i) => {
+    if (!r._offscale) return;
+    const cx = xC(i);
+    const goesUp = r._posB - TREND > TREND - r._negB;
+    const val = r.actual != null ? r.actual : r.fitted;
+    const valLabel = (val >= 0 ? "+" : "") + val.toFixed(1) + "%";
+    if (goesUp) {
+      const y = yS(yMax) - 3;
+      offscaleGroup.appendChild(el("path", { d: `M ${cx - 5} ${y} L ${cx} ${y - 6} L ${cx + 5} ${y}`, fill: "none", stroke: cv("--ink-secondary"), "stroke-width": 1.4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+      const t = el("text", { x: cx, y: y - 10, "text-anchor": "middle", "font-size": 9.5, "font-family": "ui-monospace,monospace", "font-weight": 600, fill: cv("--ink-secondary") });
+      t.textContent = valLabel;
+      offscaleGroup.appendChild(t);
+    } else {
+      const y = yS(yMin) + 3;
+      offscaleGroup.appendChild(el("path", { d: `M ${cx - 5} ${y} L ${cx} ${y + 6} L ${cx + 5} ${y}`, fill: "none", stroke: cv("--ink-secondary"), "stroke-width": 1.4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+      const t = el("text", { x: cx, y: y + 17, "text-anchor": "middle", "font-size": 9.5, "font-family": "ui-monospace,monospace", "font-weight": 600, fill: cv("--ink-secondary") });
+      t.textContent = valLabel;
+      offscaleGroup.appendChild(t);
+    }
+  });
+
+  // fitted line (accent) — solid through history, lighter/dashed over forecast.
+  // Values are clipped to the y-domain (see offscaleGroup above for the true
+  // values at points this touches).
+  function pathFor(idxs, key) {
+    return idxs.map((i, k) => `${k === 0 ? "M" : "L"} ${xC(i).toFixed(1)} ${yS(clip(rows[i][key])).toFixed(1)}`).join(" ");
+  }
+  const histIdx = rows.map((r, i) => i).filter(i => !rows[i].is_forecast);
+  const foreIdx = rows.map((r, i) => i).filter(i => rows[i].is_forecast);
+  const bridgeIdx = histIdx.length ? [histIdx[histIdx.length - 1], ...foreIdx] : foreIdx;
+
+  if (histIdx.length) svg.appendChild(el("path", { d: pathFor(histIdx, "fitted"), fill: "none", stroke: cv("--accent"), "stroke-width": 2, "stroke-dasharray": "5 3", "stroke-linecap": "round" }));
+  if (bridgeIdx.length > 1) svg.appendChild(el("path", { d: pathFor(bridgeIdx, "fitted"), fill: "none", stroke: cv("--accent"), "stroke-width": 2, "stroke-dasharray": "1.5 3", opacity: 0.8, "stroke-linecap": "round" }));
+
+  // actual line (ink, solid, historical only)
+  if (histIdx.length > 1) {
+    svg.appendChild(el("path", { d: pathFor(histIdx, "actual"), fill: "none", stroke: cv("--ink"), "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  }
+  // end markers
+  function endDot(i, key, color) {
+    const cx = xC(i), cy = yS(clip(rows[i][key]));
+    svg.appendChild(el("circle", { cx, cy, r: 5, fill: cv("--surface") }));
+    svg.appendChild(el("circle", { cx, cy, r: 3.5, fill: color }));
+  }
+  if (histIdx.length) endDot(histIdx[histIdx.length - 1], "actual", cv("--ink"));
+  if (bridgeIdx.length) endDot(bridgeIdx[bridgeIdx.length - 1], "fitted", cv("--accent"));
+  svg.appendChild(offscaleGroup);
+
+  // ---- hover / focus interaction ----
+  const tooltip = document.getElementById(cfg.tooltipId);
+  const card = svg.closest(".chart-card");
+  const hitGroup = el("g", {});
+  const crosshair = el("line", { y1: M.top, y2: M.top + plotH, stroke: cv("--ink"), "stroke-width": 1, opacity: 0, "pointer-events": "none" });
+
+  function showTooltip(i, evt) {
+    const r = rows[i];
+    crosshair.setAttribute("x1", xC(i)); crosshair.setAttribute("x2", xC(i)); crosshair.setAttribute("opacity", 0.35);
+    let html = `<div class="tooltip-q">${quarterLabel(r.q)}${r.is_forecast ? " (forecast)" : ""}</div>`;
+    catKeys.forEach(({ key, color }) => {
+      const v = r._b[key] || 0;
+      if (Math.abs(v) < 0.0005 && key !== "residual") return;
+      const label = key === "residual" ? "Unexplained" : key;
+      html += `<div class="tooltip-row"><span class="k"><span class="key-line" style="background:${color}"></span>${label}</span><span class="v">${v >= 0 ? "+" : ""}${v.toFixed(2)}pp</span></div>`;
+    });
+    html += `<div class="tooltip-row"><span class="k">Trend</span><span class="v">${TREND >= 0 ? "+" : ""}${TREND.toFixed(2)}pp</span></div>`;
+    html += `<div class="tooltip-row tooltip-total"><span class="k">${r.is_forecast ? "Nowcast / forecast" : "Estimate / Actual"}</span><span class="v">${r.fitted.toFixed(2)}%${(!r.is_forecast && r.actual != null) ? " / " + r.actual.toFixed(2) + "%" : ""}</span></div>`;
+    tooltip.innerHTML = html;
+    tooltip.hidden = false;
+    const cardRect = card.getBoundingClientRect();
+    const scrollEl = document.querySelector(".chart-scroll");
+    const svgRect = svg.getBoundingClientRect();
+    const scale = svgRect.width / W;
+    let left = (svgRect.left - cardRect.left) + xC(i) * scale + 14;
+    let top = 14;
+    const maxLeft = cardRect.width - 220;
+    if (left > maxLeft) left = xC(i) * scale + (svgRect.left - cardRect.left) - 234;
+    tooltip.style.left = Math.max(6, left) + "px";
+    tooltip.style.top = top + "px";
+  }
+  function hideTooltip() {
+    tooltip.hidden = true;
+    crosshair.setAttribute("opacity", 0);
+  }
+
+  rows.forEach((r, i) => {
+    const hit = el("rect", {
+      x: M.left + i * slot, y: M.top, width: slot, height: plotH,
+      class: "chart-hit", tabindex: 0, role: "button",
+      "aria-label": `${quarterLabel(r.q)}: growth estimate ${r.fitted.toFixed(1)} percent${r.is_forecast ? " (forecast)" : ""}`
+    });
+    hit.addEventListener("pointerenter", (e) => showTooltip(i, e));
+    hit.addEventListener("pointermove", (e) => showTooltip(i, e));
+    hit.addEventListener("pointerleave", hideTooltip);
+    hit.addEventListener("focus", () => showTooltip(i));
+    hit.addEventListener("blur", hideTooltip);
+    hit.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" && i < n - 1) { e.preventDefault(); hitGroup.children[i + 1].focus(); }
+      if (e.key === "ArrowLeft" && i > 0) { e.preventDefault(); hitGroup.children[i - 1].focus(); }
+    });
+    hitGroup.appendChild(hit);
+  });
+  svg.appendChild(crosshair);
+  svg.appendChild(hitGroup);
+
+  // ---- legend ----
+  const legend = document.getElementById(cfg.legendId);
+  CATEGORIES.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    item.innerHTML = `<span class="legend-swatch" style="background:${cv(CAT_COLOR_VAR[c.slot])}"></span><span>${c.name}</span>`;
+    legend.appendChild(item);
+  });
+  const resItem = document.createElement("div");
+  resItem.className = "legend-item";
+  resItem.innerHTML = `<span class="legend-swatch" style="background:${cv("--residual")}"></span><span>Unexplained</span>`;
+  legend.appendChild(resItem);
+  const actualItem = document.createElement("div");
+  actualItem.className = "legend-item";
+  actualItem.innerHTML = `<span class="legend-line" style="border-color:${cv("--ink")}"></span><span>Actual GDP growth</span>`;
+  legend.appendChild(actualItem);
+  const fittedItem = document.createElement("div");
+  fittedItem.className = "legend-item";
+  fittedItem.innerHTML = `<span class="legend-line" style="border-color:${cv("--accent")};border-top-style:dashed"></span><span>Model estimate / forecast</span>`;
+  legend.appendChild(fittedItem);
+  } // end renderChart
+
+  renderChart({ svgId: "chart", tooltipId: "tooltip", legendId: "legend", data: RAW_DATA });
+  renderChart({ svgId: "chart2022", tooltipId: "tooltip2022", legendId: "legend2022", data: RAW_DATA.filter(r => r.q >= "2022-01") });
+
+  // ---- table view ----
+  const tableToggle = document.getElementById("tableToggle");
+  const tableWrap = document.getElementById("tableWrap");
+  let tableBuilt = false;
+  tableToggle.addEventListener("click", () => {
+    const open = tableWrap.hidden;
+    tableWrap.hidden = !open;
+    tableToggle.setAttribute("aria-expanded", String(open));
+    tableToggle.textContent = (open ? "\u2212 Hide" : "+ View") + " underlying data as a table";
+    if (open && !tableBuilt) buildTable();
+  });
+  function buildTable() {
+    tableBuilt = true;
+    const table = document.getElementById("dataTable");
+    const tableRows = RAW_DATA.map((r) => ({ ...r, _b: bucketRow(r) }));
+    const cols = ["Quarter", ...CATEGORIES.map(c => c.name), "Unexplained", "Trend", "Model estimate", "Actual"];
+    let thead = "<thead><tr>" + cols.map(c => `<th>${c}</th>`).join("") + "</tr></thead>";
+    let tbody = "<tbody>";
+    tableRows.forEach(r => {
+      tbody += `<tr class="${r.is_forecast ? "is-forecast" : ""}">`;
+      tbody += `<td>${quarterLabel(r.q)}${r.is_forecast ? " *" : ""}</td>`;
+      CATEGORIES.forEach(c => { tbody += `<td>${(r._b[c.name] >= 0 ? "+" : "") + r._b[c.name].toFixed(2)}</td>`; });
+      tbody += `<td>${r.residual == null ? "\u2014" : (r.residual >= 0 ? "+" : "") + r.residual.toFixed(2)}</td>`;
+      tbody += `<td>${r.trend.toFixed(2)}</td>`;
+      tbody += `<td>${r.fitted.toFixed(2)}</td>`;
+      tbody += `<td>${r.actual == null ? "\u2014" : r.actual.toFixed(2)}</td>`;
+      tbody += "</tr>";
+    });
+    tbody += "</tbody>";
+    table.innerHTML = thead + tbody;
+  }
+
+  // ---- methodology toggle ----
+  const methToggle = document.getElementById("methToggle");
+  const methBody = document.getElementById("methBody");
+  methToggle.addEventListener("click", () => {
+    const open = methBody.hidden;
+    methBody.hidden = !open;
+    methToggle.setAttribute("aria-expanded", String(open));
+    methToggle.textContent = (open ? "\u2212 Hide" : "+") + " methodology & caveats";
+  });
+
+  // ---- tabs ----
+  const tabBtnDashboard = document.getElementById("tabBtnDashboard");
+  const tabBtnMemo = document.getElementById("tabBtnMemo");
+  const tabDashboard = document.getElementById("tabDashboard");
+  const tabMemo = document.getElementById("tabMemo");
+  function selectTab(name) {
+    const showMemo = name === "memo";
+    tabMemo.hidden = !showMemo;
+    tabDashboard.hidden = showMemo;
+    tabBtnMemo.setAttribute("aria-selected", String(showMemo));
+    tabBtnDashboard.setAttribute("aria-selected", String(!showMemo));
+  }
+  tabBtnDashboard.addEventListener("click", () => selectTab("dashboard"));
+  tabBtnMemo.addEventListener("click", () => selectTab("memo"));
+  selectTab("dashboard");
+})();
+</script>

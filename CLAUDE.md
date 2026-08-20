@@ -68,6 +68,13 @@ preferred source of truth for these keys over asking the user to retype them.
   count (and therefore which model wins) can genuinely vary run to run — check the console output
   before trusting a fresh pull's results, and treat "the winner flipped" as a real possible outcome,
   not a bug.
+- `01_build_panel_real.py` has an `EXCLUDED_INDICATORS` set near the top of the file for deliberately
+  setting indicators aside without deleting their fetchers — currently used to run a **global-only**
+  panel by excluding six US-only proxy series (`lending_standards`, `housing`, `leverage`,
+  `jobless_claims`, `bank_equity`, `fin`). Each fetcher stays fully defined; removing a name from the
+  set brings that indicator straight back into the next run. `credit` (US HY OAS) is separately absent
+  from the panel for a data reason, not this toggle — its Haver history only starts in 2012, short
+  enough that the panel-truncation check in `main()` drops it automatically.
 
 ## Dashboards
 

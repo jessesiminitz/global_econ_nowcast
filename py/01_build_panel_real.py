@@ -36,6 +36,20 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 # py/haver_client.py / HAVER_API_KEY) for every indicator below.
 FRED_API_KEY = os.environ.get("FRED_API_KEY")
 
+# Indicators set aside for a "global-only" panel run — each is a US-only
+# series (or a US-sourced index standing in for a global one) rather than a
+# genuine multi-country aggregate. Fetchers stay fully defined below; this
+# set just stops main() from calling them and including them in the panel.
+# Remove a name here to bring that indicator back.
+EXCLUDED_INDICATORS = {
+    "lending_standards",  # Fed SLOOS — US-only, no global equivalent
+    "housing",             # Case-Shiller — US-only proxy for global housing
+    "leverage",            # BIS credit-to-GDP for the US — US-only proxy
+    "jobless_claims",      # US initial claims — US-only proxy
+    "bank_equity",         # KBW Bank Index — US-only index
+    "fin",                 # NFCI (Chicago Fed) — US-only financial conditions index
+}
+
 
 def fetch_haver(database: str, series: str) -> pd.Series:
     """Thin wrapper so every fetcher below has a one-line Haver call to try
@@ -930,8 +944,12 @@ def main():
     print("Fetching Brent crude...")
     oil = fetch_oil_shock()
 
-    print("Fetching financial conditions...")
-    fin = fetch_financial_conditions()
+    if "fin" in EXCLUDED_INDICATORS:
+        print("Skipping financial conditions (NFCI) — set aside for this global-only run.")
+        fin = None
+    else:
+        print("Fetching financial conditions...")
+        fin = fetch_financial_conditions()
 
     print("Fetching world trade + industrial production...")
     trade, ip = fetch_trade_and_ip()
@@ -962,14 +980,20 @@ def main():
             print(f"  [skip] {label} fetch failed ({e}), dropping from the panel.")
             return None
 
+    def try_fetch_unless_excluded(name, label, fn):
+        if name in EXCLUDED_INDICATORS:
+            print(f"Skipping {label} — set aside for this global-only run.")
+            return None
+        return try_fetch(label, fn)
+
     vix = try_fetch("VIX", fetch_vix)
     equity = try_fetch("equity index (S&P 500)", fetch_equity)
-    bank_equity = try_fetch("bank equity index (KBW)", fetch_bank_equity)
-    lending_standards = try_fetch("bank lending standards (SLOOS)", fetch_lending_standards)
+    bank_equity = try_fetch_unless_excluded("bank_equity", "bank equity index (KBW)", fetch_bank_equity)
+    lending_standards = try_fetch_unless_excluded("lending_standards", "bank lending standards (SLOOS)", fetch_lending_standards)
     em_spread = try_fetch("EM sovereign spread (EMBI Global)", fetch_em_spread)
-    housing = try_fetch("housing prices (Case-Shiller)", fetch_housing)
-    leverage = try_fetch("leverage / credit-to-GDP", fetch_leverage)
-    jobless_claims = try_fetch("weekly jobless claims", fetch_jobless_claims)
+    housing = try_fetch_unless_excluded("housing", "housing prices (Case-Shiller)", fetch_housing)
+    leverage = try_fetch_unless_excluded("leverage", "leverage / credit-to-GDP", fetch_leverage)
+    jobless_claims = try_fetch_unless_excluded("jobless_claims", "weekly jobless claims", fetch_jobless_claims)
     retail_sales = try_fetch("retail sales (OECD)", fetch_retail_sales)
     consumer_conf = try_fetch("consumer confidence (OECD)", fetch_consumer_confidence)
     business_conf = try_fetch("business confidence (OECD)", fetch_business_confidence)

@@ -577,13 +577,13 @@
 
   <section class="assessment">
     <div class="eyebrow">The Assessment</div>
-    <p>The global economy looks set to grow at an annualized <b>+4.0%</b> pace in Q2 2026 &mdash; modestly above its longer-run 3.6% trend, and an acceleration from the 3.0% pace booked in Q1 2026. Consumers are spending more, while factory output is pulling back. The model expects growth to hold roughly steady over the following quarters. This is an estimate one quarter ahead of the last confirmed GDP print, so it is best read as a directional signal on where the economy is heading rather than a precise forecast.</p>
+    <p>The global economy looks set to grow at an annualized <b>+3.3%</b> pace in Q2 2026 &mdash; modestly below its longer-run 3.6% trend, though an acceleration from the 3.0% pace booked in Q1 2026. This run restricts the panel to indicators with genuine multi-country coverage, setting aside six US-only proxies (bank lending standards, home prices, credit leverage, jobless claims, bank equities, and financial conditions). Consumer spending and business sentiment are driving the improvement, while factory output and equity markets are pulling back. The model expects growth to hold roughly steady over the following quarters. This is an estimate one quarter ahead of the last confirmed GDP print, so it is best read as a directional signal on where the economy is heading rather than a precise forecast.</p>
   </section>
 
   <section class="hero">
     <div class="hero-figure">
       <div class="hero-label mono">Nowcast &middot; Q2 2026</div>
-      <div class="hero-value">+4.0%</div>
+      <div class="hero-value">+3.3%</div>
       <div class="hero-caption">annualized, world real GDP &middot; <span class="pill">one quarter ahead of last confirmed print</span></div>
     </div>
     <div class="hero-model">
@@ -593,9 +593,9 @@
         downturns &mdash; than the alternative.</p>
     </div>
     <div class="hero-stats">
-      <div class="stat"><div class="v mono">0.94</div><div class="l">Model fit (R&sup2;)</div></div>
-      <div class="stat"><div class="v mono">3.0pp</div><div class="l">Typical miss</div></div>
-      <div class="stat"><div class="v mono">7/20</div><div class="l">Indicators in use</div></div>
+      <div class="stat"><div class="v mono">0.92</div><div class="l">Model fit (R&sup2;)</div></div>
+      <div class="stat"><div class="v mono">2.9pp</div><div class="l">Typical miss</div></div>
+      <div class="stat"><div class="v mono">14/15</div><div class="l">Indicators in use</div></div>
     </div>
   </section>
 
@@ -642,8 +642,8 @@
       <p>Q2 2026 nowcast &middot; every indicator in the panel, ranked by how much it has typically moved
         the headline number over the past 44 quarters &middot; the +3.61pp long-run trend
         applies on top of every row below and isn&rsquo;t attributable to any one indicator &middot; the model in
-        use currently leans on <b>7 of 20</b> indicators &mdash; the other 13,
-        dimmed below, are tracked but aren&rsquo;t currently moving the estimate.</p>
+        use currently leans on <b>14 of 15</b> indicators &mdash; the other 1,
+        dimmed below, is tracked but isn&rsquo;t currently moving the estimate.</p>
     </div>
     <div class="indicator-table-wrap">
       <div class="table-scroll">
@@ -652,111 +652,87 @@
           <tbody>
 <tr class="">
         <td><div class="ind-name">Industrial production</div><div class="ind-desc">World industrial production, 3-month annualized growth.</div></td>
-        <td class="mono num neg">-0.49pp</td>
-        <td class="mono num">1.75pp</td>
+        <td class="mono num neg">-0.47pp</td>
+        <td class="mono num">1.70pp</td>
         <td class="src"><div class="src-primary">Haver <code>S001XDG@G10</code></div><div class="src-fallback">fallback: CPB World Trade Monitor</div></td>
       </tr>
 <tr class="">
-        <td><div class="ind-name">Jobless claims (falling = +)</div><div class="ind-desc">US initial jobless claims, sign-flipped YoY % change so + = claims falling.</div></td>
-        <td class="mono num pos">+0.26pp</td>
-        <td class="mono num">0.70pp</td>
-        <td class="src"><div class="src-primary">Haver <code>LICM@USECON</code></div><div class="src-fallback">fallback: FRED ICSA</div></td>
-      </tr>
-<tr class="">
         <td><div class="ind-name">Retail sales</div><div class="ind-desc">OECD total retail trade volume, 3-month annualized growth.</div></td>
-        <td class="mono num pos">+0.61pp</td>
+        <td class="mono num pos">+0.60pp</td>
         <td class="mono num">0.65pp</td>
         <td class="src"><div class="src-primary">Haver <code>C003ROI@OECDMEI</code></div><div class="src-fallback">fallback: FRED SLRTTO01OEQ659S</div></td>
       </tr>
 <tr class="">
-        <td><div class="ind-name">Bank lending standards (easing = +)</div><div class="ind-desc">Fed Senior Loan Officer Survey, net % of banks tightening C&I loan standards, sign-flipped so + = easing.</div></td>
-        <td class="mono num pos">+0.03pp</td>
-        <td class="mono num">0.18pp</td>
-        <td class="src"><div class="src-primary">Haver <code>LCIQ157@BCI</code></div><div class="src-fallback">fallback: FRED DRTSCILM</div></td>
+        <td><div class="ind-name">Composite PMI</div><div class="ind-desc">S&P Global Composite PMI (business survey); readings above 50 = expansion.</div></td>
+        <td class="mono num pos">+0.35pp</td>
+        <td class="mono num">0.56pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SGBLVPTG@INTSRVYS</code></div><div class="src-fallback">fallback: OECD Composite Leading Indicator</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">COVID stringency (less strict = +)</div><div class="ind-desc">Oxford COVID-19 Government Response Stringency Index, sign-flipped so + = less restrictive.</div></td>
+        <td class="mono num pos">+0.11pp</td>
+        <td class="mono num">0.26pp</td>
+        <td class="src"><div class="src-primary">Oxford OxCGRT (static historical CSV)</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Equity market performance</div><div class="ind-desc">S&amp;P 500 Composite, YoY % change &mdash; US proxy for global equity markets.</div></td>
+        <td class="mono num neg">-0.42pp</td>
+        <td class="mono num">0.25pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SP5COM@SPD</code></div><div class="src-fallback">fallback: yfinance ^GSPC</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Oil price shock</div><div class="ind-desc">Brent crude spot price, year-over-year % change.</div></td>
+        <td class="mono num neg">-0.12pp</td>
+        <td class="mono num">0.08pp</td>
+        <td class="src"><div class="src-primary">Haver <code>PEOBR@WBPRICES</code></div><div class="src-fallback">fallback: FRED DCOILBRENTEU / yfinance BZ=F</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">USD index (easing = +)</div><div class="ind-desc">Broad trade-weighted USD index, sign-flipped YoY so + = dollar easing.</div></td>
+        <td class="mono num neg">-0.04pp</td>
+        <td class="mono num">0.06pp</td>
+        <td class="src"><div class="src-primary">Haver <code>FXTWBDI@USECON</code></div><div class="src-fallback">fallback: FRED DTWEXBGS / yfinance DX-Y.NYB</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Consumer confidence</div><div class="ind-desc">OECD total consumer confidence index, de-meaned level.</div></td>
+        <td class="mono num neg">-0.09pp</td>
+        <td class="mono num">0.05pp</td>
+        <td class="src"><div class="src-primary">Haver <code>C003CCE@OECDMEI</code></div><div class="src-fallback">fallback: FRED CSCICP03O9M665S</div></td>
       </tr>
 <tr class="">
         <td><div class="ind-name">EM / sovereign spread proxy</div><div class="ind-desc">JPMorgan EMBI Global sovereign spread, YoY change (bp), sign-flipped so + = spreads tightening.</div></td>
+        <td class="mono num neg">-0.07pp</td>
+        <td class="mono num">0.05pp</td>
+        <td class="src"><div class="src-primary">Haver <code>GS@EMBI</code></div><div class="src-fallback">fallback: yfinance EEM</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Trade volumes</div><div class="ind-desc">World trade volume, 3-month annualized growth.</div></td>
+        <td class="mono num neg">-0.05pp</td>
+        <td class="mono num">0.04pp</td>
+        <td class="src"><div class="src-primary">Haver <code>S001IQXM@G10</code></div><div class="src-fallback">fallback: CPB World Trade Monitor</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">Copper (Dr. Copper)</div><div class="ind-desc">LME copper price (nicknamed Dr. Copper), YoY % change &mdash; global industrial-demand proxy.</div></td>
         <td class="mono num neg">-0.06pp</td>
         <td class="mono num">0.04pp</td>
-        <td class="src"><div class="src-primary">Haver <code>GS@EMBI</code></div><div class="src-fallback">fallback: yfinance EEM</div></td>
+        <td class="src"><div class="src-primary">Haver <code>PNMCOP@WBPRICES</code></div><div class="src-fallback">fallback: FRED PCOPPUSDM / yfinance HG=F</div></td>
+      </tr>
+<tr class="">
+        <td><div class="ind-name">VIX (calm = +)</div><div class="ind-desc">CBOE Volatility Index (VIX), sign-flipped z-score so + = calm markets.</div></td>
+        <td class="mono num pos">+0.01pp</td>
+        <td class="mono num">0.04pp</td>
+        <td class="src"><div class="src-primary">Haver <code>SPVIX@USECON</code></div><div class="src-fallback">fallback: yfinance ^VIX</div></td>
       </tr>
 <tr class="">
         <td><div class="ind-name">Yield curve (10y-2y)</div><div class="ind-desc">10-year minus 2-year US Treasury yield spread &mdash; classic recession-leading indicator.</div></td>
         <td class="mono num pos">+0.02pp</td>
-        <td class="mono num">0.03pp</td>
+        <td class="mono num">0.02pp</td>
         <td class="src"><div class="src-primary">Haver <code>FCM10@USECON &minus; FCM2@USECON</code></div><div class="src-fallback">fallback: FRED T10Y2Y</div></td>
       </tr>
 <tr class="">
-        <td><div class="ind-name">Bank equity index</div><div class="ind-desc">KBW Bank Index, YoY % change &mdash; bank-sector health/stress proxy.</div></td>
-        <td class="mono num neg">-0.03pp</td>
-        <td class="mono num">0.02pp</td>
-        <td class="src"><div class="src-primary">Haver <code>SPKBW@USECON</code></div><div class="src-fallback">fallback: yfinance ^BKX</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Composite PMI</div><div class="ind-desc">S&P Global Composite PMI (business survey); readings above 50 = expansion.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>SGBLVPTG@INTSRVYS</code></div><div class="src-fallback">fallback: OECD Composite Leading Indicator</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Trade volumes</div><div class="ind-desc">World trade volume, 3-month annualized growth.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>S001IQXM@G10</code></div><div class="src-fallback">fallback: CPB World Trade Monitor</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Oil price shock</div><div class="ind-desc">Brent crude spot price, year-over-year % change.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>PEOBR@WBPRICES</code></div><div class="src-fallback">fallback: FRED DCOILBRENTEU / yfinance BZ=F</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Financial conditions</div><div class="ind-desc">Chicago Fed National Financial Conditions Index, sign-flipped so + = easier conditions.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>NFCIM1@BCI</code></div><div class="src-fallback">fallback: FRED NFCI / yfinance ^VIX</div></td>
-      </tr>
-<tr class="inactive-row">
         <td><div class="ind-name">AI / tech capex</div><div class="ind-desc">Philadelphia Semiconductor Index, YoY % change &mdash; tech/chip-demand proxy.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
+        <td class="mono num neg">-0.03pp</td>
+        <td class="mono num">0.01pp</td>
         <td class="src"><div class="src-primary">Haver <code>SPSOX@DAILY</code></div><div class="src-fallback">fallback: yfinance ^SOX</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Copper (Dr. Copper)</div><div class="ind-desc">LME copper price (nicknamed Dr. Copper), YoY % change &mdash; global industrial-demand proxy.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>PNMCOP@WBPRICES</code></div><div class="src-fallback">fallback: FRED PCOPPUSDM / yfinance HG=F</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">USD index (easing = +)</div><div class="ind-desc">Broad trade-weighted USD index, sign-flipped YoY so + = dollar easing.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>FXTWBDI@USECON</code></div><div class="src-fallback">fallback: FRED DTWEXBGS / yfinance DX-Y.NYB</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">VIX (calm = +)</div><div class="ind-desc">CBOE Volatility Index (VIX), sign-flipped z-score so + = calm markets.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>SPVIX@USECON</code></div><div class="src-fallback">fallback: yfinance ^VIX</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Equity market performance</div><div class="ind-desc">S&P 500 Composite, YoY % change &mdash; US proxy for global equity markets.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>SP5COM@SPD</code></div><div class="src-fallback">fallback: yfinance ^GSPC</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Housing prices</div><div class="ind-desc">Case-Shiller US National Home Price Index, YoY % change.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>CASUSXAM@USECON</code></div><div class="src-fallback">fallback: FRED CSUSHPINSA</div></td>
-      </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">Consumer confidence</div><div class="ind-desc">OECD total consumer confidence index, de-meaned level.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Haver <code>C003CCE@OECDMEI</code></div><div class="src-fallback">fallback: FRED CSCICP03O9M665S</div></td>
       </tr>
 <tr class="inactive-row">
         <td><div class="ind-name">Business confidence</div><div class="ind-desc">OECD total manufacturing/industrial confidence index, de-meaned level.</div></td>
@@ -764,21 +740,32 @@
         <td class="mono num">0.00pp</td>
         <td class="src"><div class="src-primary">Haver <code>C003BMA@OECDMEI</code></div><div class="src-fallback">fallback: FRED BSCICP03O9M665S</div></td>
       </tr>
-<tr class="inactive-row">
-        <td><div class="ind-name">COVID stringency (less strict = +)</div><div class="ind-desc">Oxford COVID-19 Government Response Stringency Index, sign-flipped so + = less restrictive.</div></td>
-        <td class="mono num ">+0.00pp</td>
-        <td class="mono num">0.00pp</td>
-        <td class="src"><div class="src-primary">Oxford OxCGRT (static historical CSV)</div></td>
-      </tr>
 
           </tbody>
         </table>
       </div>
     </div>
 <div class="missing-note">
-      <b>2 of 22 tracked indicators aren&rsquo;t in this run&rsquo;s panel at all</b>
-      (distinct from the dimmed rows above, which the model just isn&rsquo;t currently weighting):
-      <ul><li><b>Credit spreads (HY OAS)</b> (credit) &mdash; Haver history for this series only goes back to 2012 &mdash; shorter than the panel's 2005 start, so it's dropped rather than truncating every other indicator's usable history to match.</li><li><b>Leverage / credit-to-GDP</b> (leverage) &mdash; the underlying series (US private nonfinancial credit-to-GDP) appears to have stopped updating as of late 2025 &mdash; treated as discontinued and dropped rather than carried forward stale.</li></ul>
+      <b>7 of 22 tracked indicators aren&rsquo;t in this run&rsquo;s panel</b>
+      (distinct from the dimmed row above, which the model just isn&rsquo;t currently weighting):
+      <ul>
+        <li><b>Set aside for this global-only run</b> &mdash; six US-only proxy indicators, deliberately excluded so the
+          estimate rests only on genuinely multi-country signals. Each fetcher stays fully coded in
+          <code>py/01_build_panel_real.py</code> (see the <code>EXCLUDED_INDICATORS</code> set) and returns
+          automatically if removed from that list:
+          <ul>
+            <li><b>Bank lending standards</b> (lending_standards, SLOOS) &mdash; US-only, no clean global equivalent exists.</li>
+            <li><b>Housing prices</b> (housing, Case-Shiller) &mdash; US-only proxy for a global housing cycle.</li>
+            <li><b>Leverage / credit-to-GDP</b> (leverage) &mdash; US-only proxy (BIS credit-to-GDP data covers the US only).</li>
+            <li><b>Jobless claims</b> (jobless_claims) &mdash; US-only proxy for global labor-market stress.</li>
+            <li><b>Bank equity index</b> (bank_equity, KBW) &mdash; a US bank-sector index, not a global one.</li>
+            <li><b>Financial conditions</b> (fin, NFCI) &mdash; a US-specific financial-conditions index (Chicago Fed).</li>
+          </ul>
+        </li>
+        <li><b>Dropped for data reasons, not by choice:</b> <b>Credit spreads (HY OAS)</b> (credit) &mdash; Haver history
+          for this series only goes back to 2012 &mdash; shorter than the panel's 2005 start, so it's dropped rather
+          than truncating every other indicator's usable history to match.</li>
+      </ul>
     </div>
   </section>
 
@@ -791,19 +778,20 @@
       <tbody>
 <tr>
         <td>Normal quarters<span class="note">66 quarters</span></td>
-        <td class="mono num ">1.57pp</td>
-        <td class="mono num win">1.50pp</td>
+        <td class="mono num win">1.45pp</td>
+        <td class="mono num ">1.65pp</td>
       </tr>
 <tr>
         <td>Stress periods<span class="note">7 quarters</span></td>
-        <td class="mono num ">13.95pp</td>
-        <td class="mono num win">8.41pp</td>
+        <td class="mono num ">12.39pp</td>
+        <td class="mono num win">8.05pp</td>
       </tr>
 <tr>
         <td>Overall</td>
-        <td class="mono num ">4.57pp</td>
-        <td class="mono num win">2.97pp</td>
+        <td class="mono num ">4.08pp</td>
+        <td class="mono num win">2.94pp</td>
       </tr>
+</tr>
 
       </tbody>
     </table>
@@ -817,38 +805,33 @@
         jobless claims, retail sales, and confidence surveys &mdash; pulled primarily from Haver Analytics, with
         FRED, yfinance, OECD, IMF, and the World Bank as fallbacks when a source is unavailable
         (<code>py/01_build_panel_real.py</code>). A single broken source drops that one indicator rather than
-        blocking the update &mdash; this run pulled <b>20 of 22</b> live;
-        the rest were temporarily unreachable (no Haver subscription configured, and the free FRED endpoint was
-        rate-limited) and were skipped rather than filled with stale numbers.</p>
+        blocking the update &mdash; this run pulled <b>15 of 22</b> live; six US-only proxies were
+        deliberately set aside to keep this a global-only panel, and one more (credit spreads) was dropped
+        automatically for insufficient history &mdash; see the note below the indicator table for the full list.</p>
       <p><b>The models.</b> Two statistical approaches compete to predict GDP growth from that panel: a factor
         model that condenses the whole panel into a few underlying trends, and an elastic-net regression that
         picks a small, stable set of indicators directly. <code>04_backtest.py</code> tests both against history
         and <code>05_export.py</code> publishes whichever wins &mdash; currently the <b>elastic-net model</b>
-        (see the comparison above). 7 of the 20 indicators available this cycle are
+        (see the comparison above). 14 of the 15 indicators available this cycle are
         currently meaningful drivers of the estimate, shown below with their fitted weights.</p>
       <table class="weights-table">
         <thead><tr><th>Indicator</th><th>Weight</th></tr></thead>
         <tbody>
-<tr><td>Industrial production</td><td class="mono num pos">+3.8887</td></tr>
-<tr><td>Retail sales</td><td class="mono num pos">+1.8802</td></tr>
-<tr><td>Jobless claims (falling = +)</td><td class="mono num pos">+1.4361</td></tr>
-<tr><td>Bank lending standards (easing = +)</td><td class="mono num neg">-0.2772</td></tr>
-<tr><td>EM / sovereign spread proxy</td><td class="mono num neg">-0.0902</td></tr>
-<tr><td>Yield curve (10y-2y)</td><td class="mono num neg">-0.0435</td></tr>
-<tr><td>Bank equity index</td><td class="mono num neg">-0.0279</td></tr>
-<tr><td>Composite PMI</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Trade volumes</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Oil price shock</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Financial conditions</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>AI / tech capex</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Copper (Dr. Copper)</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>USD index (easing = +)</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>VIX (calm = +)</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Equity market performance</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Housing prices</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Consumer confidence</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>Business confidence</td><td class="mono num pos">+0.0000</td></tr>
-<tr><td>COVID stringency (less strict = +)</td><td class="mono num pos">+0.0000</td></tr>
+<tr><td>Industrial production</td><td class="mono num pos">+3.7723</td></tr>
+<tr><td>Retail sales</td><td class="mono num pos">+1.8800</td></tr>
+<tr><td>Composite PMI</td><td class="mono num pos">+0.9305</td></tr>
+<tr><td>Equity market performance</td><td class="mono num neg">-0.3945</td></tr>
+<tr><td>COVID stringency (less strict = +)</td><td class="mono num pos">+0.2958</td></tr>
+<tr><td>EM / sovereign spread proxy</td><td class="mono num neg">-0.1044</td></tr>
+<tr><td>Oil price shock</td><td class="mono num neg">-0.1017</td></tr>
+<tr><td>USD index (easing = +)</td><td class="mono num neg">-0.0790</td></tr>
+<tr><td>Trade volumes</td><td class="mono num pos">+0.0762</td></tr>
+<tr><td>VIX (calm = +)</td><td class="mono num pos">+0.0653</td></tr>
+<tr><td>Copper (Dr. Copper)</td><td class="mono num neg">-0.0651</td></tr>
+<tr><td>Consumer confidence</td><td class="mono num pos">+0.0571</td></tr>
+<tr><td>Yield curve (10y-2y)</td><td class="mono num neg">-0.0357</td></tr>
+<tr><td>AI / tech capex</td><td class="mono num neg">-0.0122</td></tr>
+<tr><td>Business confidence</td><td class="mono num neg">-0.0024</td></tr>
 
         </tbody>
       </table>
@@ -858,7 +841,8 @@
         &mdash; every indicator is re-tested each cycle and can start mattering again as conditions change.<br/><br/>
         2) The factor model is the more transparent of the two about <i>why</i> growth moved; the elastic-net
         model is optimized purely to predict, not to explain. Which one is "in use" above is decided purely by
-        recent accuracy and can flip between runs &mdash; it did this run.
+        recent accuracy and can flip between runs &mdash; the elastic-net model has won both with the full panel
+        and with this global-only panel.
       </div>
     </div>
   </section>
@@ -875,14 +859,17 @@
       <div class="memo-head">
         <div class="memo-kicker">Memorandum</div>
         <h2 class="memo-title">Global Growth Nowcast</h2>
-        <div class="memo-meta"><span><b>Re:</b> World real GDP, Q2 2026</span><span><b>Date:</b> August 19, 2026</span></div>
+        <div class="memo-meta"><span><b>Re:</b> World real GDP, Q2 2026</span><span><b>Date:</b> August 20, 2026</span></div>
       </div>
 
-      <p>World GDP growth in Q2 2026 is tracking at an annualized <b>+4.0 percent</b>,
-      modestly above the global economy&rsquo;s 3.6 percent
-      long-run trend, and an acceleration from the 3.0 percent pace booked in Q1 2026. The improvement is concentrated in
-      stronger consumer spending and a resilient labor market,
-      only partly offset by softer industrial production. This is a
+      <p>World GDP growth in Q2 2026 is tracking at an annualized <b>+3.3 percent</b>, modestly below the global
+      economy&rsquo;s 3.6 percent long-run trend but an acceleration from the 3.0 percent pace booked in Q1 2026.
+      This update runs the nowcast on a global-only indicator panel: six US-specific proxies &mdash; bank lending
+      standards, home prices, credit-to-GDP leverage, jobless claims, bank equities, and financial conditions
+      &mdash; have been set aside so the estimate rests only on indicators with genuine multi-country coverage.
+      That change lowers the estimate by roughly 0.6 percentage point relative to the equivalent full-panel
+      reading (+4.0 percent) but does not change the model ranking: the elastic-net model remains the more
+      accurate of the two candidate specifications, particularly in stress periods. This is a
       <b>nowcast</b> &mdash; a real-time estimate built from monthly data &mdash; not the official GDP figure, which
       will not be confirmed for several more months.</p>
 
@@ -896,44 +883,55 @@
       but together they move closely with it and are available weeks to months sooner.</p>
 
       <h3>How We Build the Estimate</h3>
-      <p>We combine roughly 20 monthly indicators &mdash; spanning trade, industrial activity, the
+      <p>We combine roughly 15 monthly indicators &mdash; spanning trade, industrial activity, the
       labor market, consumer spending, and financial conditions &mdash; into a single statistical estimate of GDP
-      growth. Two different modeling approaches are tested side by side against more than a decade of history,
-      including the 2008 financial crisis and the 2020 pandemic, and we use whichever has actually predicted GDP
-      more accurately, quarter by quarter, rather than committing in advance to one method. That comparison is
-      re-run every time the estimate is refreshed, so the model in use can change &mdash; and has changed, in past
-      refreshes &mdash; as conditions change.</p>
+      growth. Six additional indicators with genuine information value but only US-level coverage (bank lending
+      standards, home prices, credit leverage, jobless claims, bank equities, and financial conditions) are set
+      aside for this run to keep the panel global. Two different modeling approaches are tested side by side
+      against more than a decade of history, including the 2008 financial crisis and the 2020 pandemic, and we use
+      whichever has actually predicted GDP more accurately, quarter by quarter, rather than committing in advance
+      to one method. That comparison is re-run every time the estimate is refreshed, so the model in use can
+      change &mdash; and has changed, in past refreshes &mdash; as conditions change.</p>
 
       <h3>The Data</h3>
       <p>Data is drawn primarily from Haver Analytics, a professional economic-data platform, with the Federal
       Reserve, the OECD, the IMF, and other public sources as fallbacks when a series is unavailable. We favor data
       that is genuinely monthly, so it updates faster than GDP; available with only a short lag; and has a long,
       consistent history, so it can be tested against past recessions and recoveries rather than only recent, calmer
-      periods. Two series &mdash; Credit spreads and Leverage / credit-to-GDP &mdash; are sitting out this update because their available history is either too short or has stopped updating; both are re-tested every cycle and will return automatically once the data resumes.</p>
+      periods. Six indicators are sitting out this update by design, not because the data is unavailable &mdash;
+      they are US-only proxies with no clean global equivalent (bank lending standards, home prices, credit
+      leverage, jobless claims, bank equities, and financial conditions) and can be reinstated at any time. A
+      seventh, credit spreads, is absent because its available history only goes back to 2012, too short to date.</p>
 
       <h3>What the Results Are Telling Us</h3>
-      <p>The headline number &mdash; +4.0 percent for Q2 2026 &mdash; is a read on
+      <p>The headline number &mdash; +3.3 percent for Q2 2026 &mdash; is a read on
       the current quarter, not a distant forecast: it sits just one quarter beyond Q1 2026,
       the last quarter with a confirmed GDP print, so it is built on real monthly data that has already come in for
       Q2 2026, not a long-range guess. The chart on the Dashboard tab also carries the estimate several
       quarters further out, to show where the model expects growth to head next, but those later quarters are
       extrapolated rather than grounded in incoming data and should be weighted less heavily than this one.</p>
       <p>Even this quarter&rsquo;s number is an estimate, not a confirmed figure: historically, this model&rsquo;s
-      GDP estimates have missed the actual print by about 3 percentage points on
+      GDP estimates have missed the actual print by about 2.9 percentage points on
       average, so the exact decimal matters less than the direction and rough magnitude it points to &mdash; growth
-      running above trend and accelerating from last quarter, not the reverse.</p>
+      running modestly below trend but accelerating from last quarter, not the reverse. The gap with the
+      equivalent full-panel reading (+4.0 percent) is broadly consistent with the six set-aside indicators having
+      been modest net positive contributors, combined, in the prior run; the elastic-net model was also refit on
+      the smaller panel, so the two figures are not a clean like-for-like decomposition.</p>
 
       <h3>Key Drivers of Growth</h3>
-      <p>Consumer spending, measured through retail sales, is the single largest positive contributor this quarter &mdash; households are spending more, not less.
-       The labor market is the next-largest positive contributor: jobless claims are falling, a sign employers are not yet cutting workers despite the slowdown elsewhere.
-       That slowdown shows up directly: industrial production is the largest single drag this quarter, even as the positive drivers outweigh it.
-      Smaller movements in bank lending conditions, emerging-market borrowing costs, and bank equities round out the
-      picture but are not currently decisive.</p>
+      <p>Consumer spending, measured through retail sales, is again the single largest contributor this quarter,
+      adding roughly 0.6 percentage point. Business sentiment, captured by the composite PMI, is the next-largest
+      positive driver. Those gains are largely offset by industrial production &mdash; the largest single drag this
+      quarter &mdash; and by softer global equity performance; together the two subtract close to 0.9 percentage
+      point. Smaller movements in COVID-era stringency effects, oil prices, and the remaining financial-market
+      indicators round out the picture but are not currently decisive.</p>
 
       <h3>Bottom Line</h3>
-      <p>The economy is growing faster than its long-run trend, carried by the consumer and the labor market even as
-      manufacturing cools. We will continue to update this estimate monthly as new data arrives and will flag if the
-      balance of drivers shifts.</p>
+      <p>Growth is running modestly below trend but accelerating from Q1, carried by the consumer and by business
+      sentiment even as factory output and equity markets soften. Restricting the panel to genuinely global
+      indicators did not change that picture materially: the estimate and the model ranking are consistent with
+      the full-panel run. We will continue to update this estimate monthly as new data arrives and will flag if the
+      balance of drivers shifts, or if reinstating the US-only proxies would meaningfully change the read.</p>
     </div>
 
   </div>
@@ -941,9 +939,9 @@
 </div>
 
 <script>
-const RAW_DATA = [{"q":"2015-04","pmi":-0.0,"trade":-0.0,"ip":-0.847,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.027,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":-0.002,"lending_standards":-0.126,"em_spread":0.064,"housing":0.0,"jobless_claims":0.294,"retail_sales":0.028,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.996,"actual":3.544,"residual":0.548,"is_forecast":false},{"q":"2015-07","pmi":-0.0,"trade":-0.0,"ip":-0.306,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.026,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.001,"lending_standards":-0.146,"em_spread":0.094,"housing":0.0,"jobless_claims":0.264,"retail_sales":0.248,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.742,"actual":3.282,"residual":-0.46,"is_forecast":false},{"q":"2015-10","pmi":-0.0,"trade":-0.0,"ip":-0.845,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.018,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.004,"lending_standards":0.026,"em_spread":0.052,"housing":0.0,"jobless_claims":0.247,"retail_sales":-0.34,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.739,"actual":2.484,"residual":-0.255,"is_forecast":false},{"q":"2016-01","pmi":-0.0,"trade":-0.0,"ip":-0.094,"oil":-0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.006,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.017,"lending_standards":0.035,"em_spread":0.045,"housing":0.0,"jobless_claims":0.246,"retail_sales":0.124,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.98,"actual":3.434,"residual":-0.545,"is_forecast":false},{"q":"2016-04","pmi":-0.0,"trade":-0.0,"ip":-0.762,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":-0.001,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.017,"lending_standards":0.076,"em_spread":0.034,"housing":0.0,"jobless_claims":0.219,"retail_sales":-0.1,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.096,"actual":3.123,"residual":0.027,"is_forecast":false},{"q":"2016-07","pmi":-0.0,"trade":0.0,"ip":-0.108,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.006,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.013,"lending_standards":0.039,"em_spread":-0.031,"housing":0.0,"jobless_claims":0.238,"retail_sales":0.043,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.813,"actual":3.463,"residual":-0.35,"is_forecast":false},{"q":"2016-10","pmi":-0.0,"trade":0.0,"ip":0.336,"oil":0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":-0.007,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":-0.005,"lending_standards":-0.045,"em_spread":-0.038,"housing":0.0,"jobless_claims":0.241,"retail_sales":0.21,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.304,"actual":3.628,"residual":-0.676,"is_forecast":false},{"q":"2017-01","pmi":-0.0,"trade":0.0,"ip":-0.02,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.011,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.041,"lending_standards":-0.046,"em_spread":-0.094,"housing":0.0,"jobless_claims":0.304,"retail_sales":0.014,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.72,"actual":3.788,"residual":0.068,"is_forecast":false},{"q":"2017-04","pmi":0.0,"trade":0.0,"ip":0.715,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.0,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.029,"lending_standards":-0.096,"em_spread":-0.062,"housing":0.0,"jobless_claims":0.275,"retail_sales":0.06,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.476,"actual":4.384,"residual":-0.092,"is_forecast":false},{"q":"2017-07","pmi":0.0,"trade":-0.0,"ip":0.52,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.004,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.031,"lending_standards":-0.109,"em_spread":-0.03,"housing":0.0,"jobless_claims":0.183,"retail_sales":0.082,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.232,"actual":4.445,"residual":0.213,"is_forecast":false},{"q":"2017-10","pmi":0.0,"trade":0.0,"ip":0.53,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.013,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.019,"lending_standards":-0.164,"em_spread":-0.034,"housing":0.0,"jobless_claims":0.213,"retail_sales":0.318,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.471,"actual":4.02,"residual":-0.451,"is_forecast":false},{"q":"2018-01","pmi":0.0,"trade":-0.0,"ip":0.136,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.017,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.013,"lending_standards":-0.182,"em_spread":-0.017,"housing":0.0,"jobless_claims":0.213,"retail_sales":-0.815,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.953,"actual":4.299,"residual":1.346,"is_forecast":false},{"q":"2018-04","pmi":0.0,"trade":-0.0,"ip":0.018,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.024,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.011,"lending_standards":-0.197,"em_spread":0.024,"housing":0.0,"jobless_claims":0.253,"retail_sales":0.196,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.919,"actual":3.57,"residual":-0.349,"is_forecast":false},{"q":"2018-07","pmi":0.0,"trade":0.0,"ip":-0.542,"oil":0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.033,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.008,"lending_standards":-0.252,"em_spread":0.046,"housing":0.0,"jobless_claims":0.358,"retail_sales":-0.271,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.976,"actual":2.891,"residual":-0.085,"is_forecast":false},{"q":"2018-10","pmi":-0.0,"trade":-0.0,"ip":-0.906,"oil":0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.034,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.011,"lending_standards":-0.252,"em_spread":0.07,"housing":0.0,"jobless_claims":0.268,"retail_sales":-0.226,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.612,"actual":2.102,"residual":-0.51,"is_forecast":false},{"q":"2019-01","pmi":-0.0,"trade":-0.0,"ip":-0.857,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.037,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.02,"lending_standards":-0.029,"em_spread":0.058,"housing":-0.0,"jobless_claims":0.222,"retail_sales":-0.152,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.912,"actual":3.572,"residual":0.66,"is_forecast":false},{"q":"2019-04","pmi":-0.0,"trade":-0.0,"ip":-0.25,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.035,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.016,"lending_standards":-0.113,"em_spread":0.021,"housing":-0.0,"jobless_claims":0.199,"retail_sales":0.259,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.78,"actual":4.305,"residual":0.526,"is_forecast":false},{"q":"2019-07","pmi":-0.0,"trade":-0.0,"ip":-1.169,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.039,"usd":-0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.016,"lending_standards":-0.096,"em_spread":-0.009,"housing":-0.0,"jobless_claims":0.179,"retail_sales":0.254,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.829,"actual":3.176,"residual":0.347,"is_forecast":false},{"q":"2019-10","pmi":-0.0,"trade":-0.0,"ip":-1.533,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.035,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.005,"lending_standards":0.002,"em_spread":-0.056,"housing":-0.0,"jobless_claims":0.174,"retail_sales":-0.609,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":1.621,"actual":1.099,"residual":-0.522,"is_forecast":false},{"q":"2020-01","pmi":-0.0,"trade":-0.0,"ip":-5.747,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.032,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.007,"lending_standards":-0.063,"em_spread":-0.007,"housing":0.0,"jobless_claims":-3.242,"retail_sales":-1.445,"consumer_conf":0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":-6.853,"actual":-12.889,"residual":-6.037,"is_forecast":false},{"q":"2020-04","pmi":-0.0,"trade":-0.0,"ip":-11.922,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.022,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.031,"lending_standards":0.433,"em_spread":0.104,"housing":0.0,"jobless_claims":-9.491,"retail_sales":-2.646,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":-19.856,"actual":-21.349,"residual":-1.492,"is_forecast":false},{"q":"2020-07","pmi":-0.0,"trade":0.0,"ip":23.889,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.021,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":0.028,"lending_standards":0.787,"em_spread":0.033,"housing":0.0,"jobless_claims":-3.217,"retail_sales":10.986,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":36.141,"actual":38.899,"residual":2.757,"is_forecast":false},{"q":"2020-10","pmi":0.0,"trade":0.0,"ip":5.708,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.012,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":0.025,"lending_standards":0.387,"em_spread":0.037,"housing":0.0,"jobless_claims":-2.062,"retail_sales":-0.048,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":7.671,"actual":9.116,"residual":1.444,"is_forecast":false},{"q":"2021-01","pmi":0.0,"trade":0.0,"ip":0.653,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.01,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.015,"lending_standards":0.003,"em_spread":-0.023,"housing":0.0,"jobless_claims":-1.212,"retail_sales":0.882,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":3.891,"actual":3.679,"residual":-0.211,"is_forecast":false},{"q":"2021-04","pmi":0.0,"trade":-0.0,"ip":3.23,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.021,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.069,"lending_standards":-0.243,"em_spread":-0.136,"housing":0.0,"jobless_claims":0.885,"retail_sales":2.192,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":9.452,"actual":3.915,"residual":-5.537,"is_forecast":false},{"q":"2021-07","pmi":0.0,"trade":-0.0,"ip":-1.243,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.006,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.06,"lending_standards":-0.449,"em_spread":-0.048,"housing":0.0,"jobless_claims":0.747,"retail_sales":-0.501,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":2.053,"actual":6.351,"residual":4.298,"is_forecast":false},{"q":"2021-10","pmi":0.0,"trade":0.0,"ip":1.631,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":-0.002,"usd":-0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.051,"lending_standards":-0.28,"em_spread":-0.013,"housing":0.0,"jobless_claims":0.798,"retail_sales":0.486,"consumer_conf":0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":6.182,"actual":7.326,"residual":1.144,"is_forecast":false},{"q":"2022-01","pmi":0.0,"trade":-0.0,"ip":0.835,"oil":0.0,"fin":0.0,"ai":-0.0,"copper":0.0,"yield_curve":0.022,"usd":-0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.016,"lending_standards":-0.235,"em_spread":0.038,"housing":0.0,"jobless_claims":0.805,"retail_sales":-0.19,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":4.871,"actual":1.677,"residual":-3.194,"is_forecast":false},{"q":"2022-04","pmi":0.0,"trade":-0.0,"ip":-1.229,"oil":0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.035,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.018,"lending_standards":-0.08,"em_spread":0.063,"housing":0.0,"jobless_claims":0.668,"retail_sales":-0.15,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":2.937,"actual":0.775,"residual":-2.162,"is_forecast":false},{"q":"2022-07","pmi":-0.0,"trade":0.0,"ip":-0.182,"oil":0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.057,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.022,"lending_standards":0.226,"em_spread":0.092,"housing":0.0,"jobless_claims":0.551,"retail_sales":-0.763,"consumer_conf":-0.0,"business_conf":0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":3.617,"actual":5.463,"residual":1.846,"is_forecast":false},{"q":"2022-10","pmi":-0.0,"trade":-0.0,"ip":-2.015,"oil":0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.071,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.031,"lending_standards":0.404,"em_spread":0.071,"housing":0.0,"jobless_claims":0.311,"retail_sales":-0.803,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":-0.0,"trend":3.613,"fitted":1.683,"actual":2.258,"residual":0.575,"is_forecast":false},{"q":"2023-01","pmi":0.0,"trade":-0.0,"ip":-1.18,"oil":-0.0,"fin":-0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.077,"usd":-0.0,"vix":-0.0,"equity":-0.0,"bank_equity":0.03,"lending_standards":0.472,"em_spread":0.015,"housing":-0.0,"jobless_claims":0.219,"retail_sales":-0.008,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.238,"actual":3.564,"residual":0.326,"is_forecast":false},{"q":"2023-04","pmi":0.0,"trade":-0.0,"ip":-1.502,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.076,"usd":0.0,"vix":0.0,"equity":-0.0,"bank_equity":0.035,"lending_standards":0.486,"em_spread":0.009,"housing":-0.0,"jobless_claims":0.104,"retail_sales":-0.207,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.613,"actual":3.058,"residual":0.445,"is_forecast":false},{"q":"2023-07","pmi":0.0,"trade":-0.0,"ip":-0.472,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.08,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":0.028,"lending_standards":0.543,"em_spread":-0.057,"housing":-0.0,"jobless_claims":0.103,"retail_sales":-0.319,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.519,"actual":4.317,"residual":0.798,"is_forecast":false},{"q":"2023-10","pmi":0.0,"trade":-0.0,"ip":-0.838,"oil":-0.0,"fin":-0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.061,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":0.025,"lending_standards":0.342,"em_spread":-0.043,"housing":0.0,"jobless_claims":0.167,"retail_sales":-0.546,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.782,"actual":2.45,"residual":-0.332,"is_forecast":false},{"q":"2024-01","pmi":0.0,"trade":-0.0,"ip":-0.948,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.06,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":0.011,"lending_standards":0.11,"em_spread":-0.039,"housing":0.0,"jobless_claims":0.197,"retail_sales":-0.382,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.623,"actual":3.536,"residual":0.913,"is_forecast":false},{"q":"2024-04","pmi":0.0,"trade":0.0,"ip":-0.483,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.062,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.023,"lending_standards":0.124,"em_spread":-0.059,"housing":0.0,"jobless_claims":0.216,"retail_sales":-0.217,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.232,"actual":3.483,"residual":0.251,"is_forecast":false},{"q":"2024-07","pmi":0.0,"trade":0.0,"ip":-0.663,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":-0.0,"yield_curve":0.048,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.027,"lending_standards":0.032,"em_spread":0.003,"housing":0.0,"jobless_claims":0.182,"retail_sales":0.391,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.58,"actual":3.844,"residual":0.264,"is_forecast":false},{"q":"2024-10","pmi":0.0,"trade":-0.0,"ip":-0.543,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.039,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.048,"lending_standards":-0.063,"em_spread":-0.03,"housing":-0.0,"jobless_claims":0.132,"retail_sales":0.153,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.253,"actual":3.722,"residual":0.468,"is_forecast":false},{"q":"2025-01","pmi":0.0,"trade":0.0,"ip":0.637,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.031,"usd":-0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.029,"lending_standards":0.011,"em_spread":-0.01,"housing":-0.0,"jobless_claims":0.147,"retail_sales":-0.158,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.241,"actual":2.433,"residual":-1.809,"is_forecast":false},{"q":"2025-04","pmi":0.0,"trade":-0.0,"ip":-0.031,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.022,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.014,"lending_standards":0.158,"em_spread":0.013,"housing":-0.0,"jobless_claims":0.152,"retail_sales":0.009,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.922,"actual":4.026,"residual":0.104,"is_forecast":false},{"q":"2025-07","pmi":0.0,"trade":0.0,"ip":-0.215,"oil":-0.0,"fin":0.0,"ai":-0.0,"copper":-0.0,"yield_curve":0.02,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.026,"lending_standards":0.051,"em_spread":-0.049,"housing":-0.0,"jobless_claims":0.194,"retail_sales":0.148,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.736,"actual":3.523,"residual":-0.213,"is_forecast":false},{"q":"2025-10","pmi":0.0,"trade":-0.0,"ip":-0.702,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.018,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.014,"lending_standards":0.015,"em_spread":-0.036,"housing":-0.0,"jobless_claims":0.196,"retail_sales":-0.261,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":2.829,"actual":3.326,"residual":0.497,"is_forecast":false},{"q":"2026-01","pmi":0.0,"trade":0.0,"ip":0.149,"oil":-0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.016,"usd":0.0,"vix":-0.0,"equity":0.0,"bank_equity":-0.018,"lending_standards":0.001,"em_spread":-0.04,"housing":-0.0,"jobless_claims":0.224,"retail_sales":0.329,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":4.274,"actual":3.031,"residual":-1.242,"is_forecast":false},{"q":"2026-04","pmi":0.0,"trade":-0.0,"ip":-0.489,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.024,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.031,"lending_standards":0.034,"em_spread":-0.061,"housing":-0.0,"jobless_claims":0.256,"retail_sales":0.607,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.952,"actual":null,"residual":null,"is_forecast":true},{"q":"2026-07","pmi":0.0,"trade":-0.0,"ip":-0.045,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.023,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.025,"lending_standards":0.029,"em_spread":-0.044,"housing":-0.0,"jobless_claims":0.156,"retail_sales":-0.063,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.644,"actual":null,"residual":null,"is_forecast":true},{"q":"2026-10","pmi":0.0,"trade":-0.0,"ip":-0.004,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.022,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.02,"lending_standards":0.025,"em_spread":-0.032,"housing":-0.0,"jobless_claims":0.095,"retail_sales":0.007,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.706,"actual":null,"residual":null,"is_forecast":true},{"q":"2027-01","pmi":0.0,"trade":-0.0,"ip":-0.0,"oil":0.0,"fin":0.0,"ai":0.0,"copper":0.0,"yield_curve":0.021,"usd":0.0,"vix":0.0,"equity":0.0,"bank_equity":-0.016,"lending_standards":0.021,"em_spread":-0.023,"housing":-0.0,"jobless_claims":0.058,"retail_sales":-0.001,"consumer_conf":-0.0,"business_conf":-0.0,"covid_stringency":0.0,"trend":3.613,"fitted":3.673,"actual":null,"residual":null,"is_forecast":true}];
-const CATEGORIES = [{"name":"Core Activity","members":["pmi","trade","ip","retail_sales","consumer_conf","business_conf","jobless_claims"],"slot":"cat-1"},{"name":"Financial Conditions","members":["fin","vix","credit","yield_curve","usd","equity","bank_equity","lending_standards","em_spread"],"slot":"cat-2"},{"name":"Commodities & Tech","members":["oil","copper","ai"],"slot":"cat-3"},{"name":"Housing &amp; Credit","members":["housing","leverage"],"slot":"cat-4"},{"name":"COVID Stringency","members":["covid_stringency"],"slot":"cat-5"}];
-const TREND = 3.613;
+const RAW_DATA = [{"q":"2015-04","pmi":-0.083,"trade":-0.049,"ip":-0.821,"oil":0.143,"ai":0.001,"copper":0.044,"yield_curve":-0.023,"usd":0.163,"vix":0.044,"equity":0.038,"em_spread":0.074,"retail_sales":0.024,"consumer_conf":0.054,"business_conf":-0.0,"covid_stringency":0.108,"trend":3.608,"fitted":3.325,"actual":3.544,"residual":0.219,"is_forecast":false},{"q":"2015-07","pmi":-0.292,"trade":-0.006,"ip":-0.295,"oil":0.163,"ai":0.009,"copper":0.072,"yield_curve":-0.022,"usd":0.2,"vix":-0.002,"equity":0.218,"em_spread":0.109,"retail_sales":0.245,"consumer_conf":0.044,"business_conf":0.0,"covid_stringency":0.108,"trend":3.608,"fitted":4.158,"actual":3.282,"residual":-0.876,"is_forecast":false},{"q":"2015-10","pmi":-0.464,"trade":-0.026,"ip":-0.818,"oil":0.141,"ai":0.009,"copper":0.075,"yield_curve":-0.015,"usd":0.153,"vix":0.017,"equity":0.233,"em_spread":0.06,"retail_sales":-0.344,"consumer_conf":0.052,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":2.788,"actual":2.484,"residual":-0.305,"is_forecast":false},{"q":"2016-01","pmi":-0.545,"trade":-0.035,"ip":-0.089,"oil":0.124,"ai":0.011,"copper":0.062,"yield_curve":-0.005,"usd":0.096,"vix":-0.013,"equity":0.356,"em_spread":0.052,"retail_sales":0.12,"consumer_conf":0.047,"business_conf":0.0,"covid_stringency":0.108,"trend":3.608,"fitted":3.898,"actual":3.434,"residual":-0.463,"is_forecast":false},{"q":"2016-04","pmi":-0.512,"trade":-0.022,"ip":-0.738,"oil":0.096,"ai":0.01,"copper":0.066,"yield_curve":-0.001,"usd":0.051,"vix":0.028,"equity":0.256,"em_spread":0.04,"retail_sales":-0.103,"consumer_conf":0.045,"business_conf":-0.0,"covid_stringency":0.108,"trend":3.608,"fitted":2.932,"actual":3.123,"residual":0.191,"is_forecast":false},{"q":"2016-07","pmi":-0.389,"trade":0.008,"ip":-0.103,"oil":0.048,"ai":-0.005,"copper":0.041,"yield_curve":0.005,"usd":0.018,"vix":0.047,"equity":0.031,"em_spread":-0.036,"retail_sales":0.04,"consumer_conf":0.042,"business_conf":-0.0,"covid_stringency":0.108,"trend":3.608,"fitted":3.463,"actual":3.463,"residual":-0.0,"is_forecast":false},{"q":"2016-10","pmi":-0.196,"trade":0.031,"ip":0.329,"oil":-0.019,"ai":-0.006,"copper":0.005,"yield_curve":-0.006,"usd":0.041,"vix":0.041,"equity":0.108,"em_spread":-0.044,"retail_sales":0.207,"consumer_conf":0.047,"business_conf":-0.001,"covid_stringency":0.108,"trend":3.608,"fitted":4.253,"actual":3.628,"residual":-0.625,"is_forecast":false},{"q":"2017-01","pmi":-0.022,"trade":0.0,"ip":-0.016,"oil":-0.132,"ai":-0.015,"copper":-0.028,"yield_curve":-0.009,"usd":0.021,"vix":0.06,"equity":-0.212,"em_spread":-0.108,"retail_sales":0.011,"consumer_conf":0.052,"business_conf":-0.001,"covid_stringency":0.108,"trend":3.608,"fitted":3.315,"actual":3.788,"residual":0.473,"is_forecast":false},{"q":"2017-04","pmi":0.117,"trade":0.007,"ip":0.698,"oil":0.0,"ai":-0.016,"copper":-0.017,"yield_curve":-0.0,"usd":0.025,"vix":0.061,"equity":-0.138,"em_spread":-0.071,"retail_sales":0.056,"consumer_conf":0.064,"business_conf":-0.002,"covid_stringency":0.108,"trend":3.608,"fitted":4.5,"actual":4.384,"residual":-0.116,"is_forecast":false},{"q":"2017-07","pmi":0.27,"trade":0.0,"ip":0.508,"oil":-0.008,"ai":-0.01,"copper":-0.044,"yield_curve":0.003,"usd":-0.037,"vix":0.066,"equity":-0.119,"em_spread":-0.034,"retail_sales":0.079,"consumer_conf":0.07,"business_conf":-0.003,"covid_stringency":0.108,"trend":3.608,"fitted":4.458,"actual":4.445,"residual":-0.013,"is_forecast":false},{"q":"2017-10","pmi":0.383,"trade":0.03,"ip":0.518,"oil":-0.035,"ai":-0.013,"copper":-0.038,"yield_curve":0.011,"usd":-0.068,"vix":0.071,"equity":-0.268,"em_spread":-0.04,"retail_sales":0.315,"consumer_conf":0.078,"business_conf":-0.003,"covid_stringency":0.108,"trend":3.608,"fitted":4.658,"actual":4.02,"residual":-0.637,"is_forecast":false},{"q":"2018-01","pmi":0.379,"trade":-0.015,"ip":0.135,"oil":-0.037,"ai":-0.01,"copper":-0.016,"yield_curve":0.014,"usd":-0.11,"vix":0.013,"equity":-0.177,"em_spread":-0.019,"retail_sales":-0.819,"consumer_conf":0.079,"business_conf":-0.003,"covid_stringency":0.108,"trend":3.608,"fitted":3.13,"actual":4.299,"residual":1.17,"is_forecast":false},{"q":"2018-04","pmi":0.249,"trade":-0.007,"ip":0.02,"oil":-0.103,"ai":-0.004,"copper":-0.02,"yield_curve":0.02,"usd":-0.051,"vix":0.03,"equity":-0.047,"em_spread":0.029,"retail_sales":0.193,"consumer_conf":0.079,"business_conf":-0.003,"covid_stringency":0.108,"trend":3.608,"fitted":4.1,"actual":3.57,"residual":-0.53,"is_forecast":false},{"q":"2018-07","pmi":-0.002,"trade":0.01,"ip":-0.525,"oil":-0.096,"ai":-0.002,"copper":0.029,"yield_curve":0.027,"usd":0.034,"vix":0.05,"equity":-0.148,"em_spread":0.054,"retail_sales":-0.275,"consumer_conf":0.078,"business_conf":-0.003,"covid_stringency":0.108,"trend":3.608,"fitted":2.947,"actual":2.891,"residual":-0.057,"is_forecast":false},{"q":"2018-10","pmi":-0.295,"trade":-0.039,"ip":-0.878,"oil":-0.001,"ai":0.011,"copper":0.042,"yield_curve":0.028,"usd":0.046,"vix":-0.017,"equity":0.23,"em_spread":0.081,"retail_sales":-0.23,"consumer_conf":0.065,"business_conf":-0.002,"covid_stringency":0.108,"trend":3.608,"fitted":2.757,"actual":2.102,"residual":-0.655,"is_forecast":false},{"q":"2019-01","pmi":-0.476,"trade":-0.029,"ip":-0.83,"oil":0.041,"ai":0.009,"copper":0.043,"yield_curve":0.03,"usd":0.07,"vix":0.022,"equity":0.21,"em_spread":0.068,"retail_sales":-0.156,"consumer_conf":0.063,"business_conf":-0.001,"covid_stringency":0.108,"trend":3.608,"fitted":2.779,"actual":3.572,"residual":0.793,"is_forecast":false},{"q":"2019-04","pmi":-0.53,"trade":-0.017,"ip":-0.241,"oil":0.049,"ai":0.004,"copper":0.045,"yield_curve":0.028,"usd":0.047,"vix":0.032,"equity":0.076,"em_spread":0.025,"retail_sales":0.256,"consumer_conf":0.065,"business_conf":-0.0,"covid_stringency":0.108,"trend":3.608,"fitted":3.553,"actual":4.305,"residual":0.752,"is_forecast":false},{"q":"2019-07","pmi":-0.546,"trade":-0.011,"ip":-1.133,"oil":0.075,"ai":0.003,"copper":0.033,"yield_curve":0.032,"usd":0.022,"vix":0.026,"equity":0.182,"em_spread":-0.01,"retail_sales":0.251,"consumer_conf":0.051,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":2.691,"actual":3.176,"residual":0.485,"is_forecast":false},{"q":"2019-10","pmi":-0.492,"trade":-0.036,"ip":-1.487,"oil":0.039,"ai":-0.012,"copper":0.031,"yield_curve":0.029,"usd":-0.004,"vix":0.042,"equity":-0.214,"em_spread":-0.065,"retail_sales":-0.613,"consumer_conf":0.057,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":0.99,"actual":1.099,"residual":0.109,"is_forecast":false},{"q":"2020-01","pmi":-2.504,"trade":-0.119,"ip":-5.583,"oil":0.078,"ai":-0.003,"copper":0.041,"yield_curve":0.026,"usd":0.025,"vix":-0.091,"equity":0.116,"em_spread":-0.007,"retail_sales":-1.451,"consumer_conf":0.027,"business_conf":0.002,"covid_stringency":-0.2,"trend":3.608,"fitted":-6.036,"actual":-12.889,"residual":-6.853,"is_forecast":false},{"q":"2020-04","pmi":-4.396,"trade":-0.254,"ip":-11.585,"oil":0.169,"ai":-0.006,"copper":0.047,"yield_curve":0.018,"usd":0.063,"vix":-0.124,"equity":0.13,"em_spread":0.121,"retail_sales":-2.653,"consumer_conf":-0.074,"business_conf":0.006,"covid_stringency":-1.2,"trend":3.608,"fitted":-16.129,"actual":-21.349,"residual":-5.219,"is_forecast":false},{"q":"2020-07","pmi":-0.717,"trade":0.382,"ip":23.221,"oil":0.109,"ai":-0.012,"copper":-0.003,"yield_curve":0.017,"usd":-0.002,"vix":-0.054,"equity":-0.107,"em_spread":0.039,"retail_sales":10.998,"consumer_conf":-0.049,"business_conf":0.002,"covid_stringency":-0.935,"trend":3.608,"fitted":36.498,"actual":38.899,"residual":2.4,"is_forecast":false},{"q":"2020-10","pmi":0.145,"trade":0.098,"ip":5.55,"oil":0.105,"ai":-0.013,"copper":-0.021,"yield_curve":0.01,"usd":-0.04,"vix":-0.052,"equity":-0.08,"em_spread":0.043,"retail_sales":-0.052,"consumer_conf":-0.032,"business_conf":0.0,"covid_stringency":-0.877,"trend":3.608,"fitted":8.389,"actual":9.116,"residual":0.726,"is_forecast":false},{"q":"2021-01","pmi":0.707,"trade":0.034,"ip":0.637,"oil":-0.059,"ai":-0.023,"copper":-0.081,"yield_curve":-0.009,"usd":-0.073,"vix":-0.034,"equity":-0.586,"em_spread":-0.026,"retail_sales":0.88,"consumer_conf":-0.006,"business_conf":-0.002,"covid_stringency":-0.925,"trend":3.608,"fitted":4.043,"actual":3.679,"residual":-0.363,"is_forecast":false},{"q":"2021-04","pmi":1.608,"trade":-0.002,"ip":3.141,"oil":-0.311,"ai":-0.022,"copper":-0.142,"yield_curve":-0.018,"usd":-0.123,"vix":0.009,"equity":-0.78,"em_spread":-0.157,"retail_sales":2.192,"consumer_conf":0.037,"business_conf":-0.003,"covid_stringency":-0.896,"trend":3.608,"fitted":8.142,"actual":3.915,"residual":-4.227,"is_forecast":false},{"q":"2021-07","pmi":0.832,"trade":-0.027,"ip":-1.205,"oil":-0.163,"ai":-0.015,"copper":-0.066,"yield_curve":-0.005,"usd":-0.058,"vix":0.007,"equity":-0.533,"em_spread":-0.055,"retail_sales":-0.505,"consumer_conf":0.03,"business_conf":-0.004,"covid_stringency":-0.803,"trend":3.608,"fitted":1.038,"actual":6.351,"residual":5.313,"is_forecast":false},{"q":"2021-10","pmi":0.976,"trade":0.076,"ip":1.588,"oil":-0.189,"ai":-0.013,"copper":-0.049,"yield_curve":-0.002,"usd":0.001,"vix":-0.001,"equity":-0.552,"em_spread":-0.015,"retail_sales":0.483,"consumer_conf":0.001,"business_conf":-0.004,"covid_stringency":-0.709,"trend":3.608,"fitted":5.199,"actual":7.326,"residual":2.126,"is_forecast":false},{"q":"2022-01","pmi":0.496,"trade":-0.018,"ip":0.814,"oil":-0.141,"ai":0.002,"copper":-0.014,"yield_curve":0.018,"usd":0.026,"vix":-0.05,"equity":-0.176,"em_spread":0.044,"retail_sales":-0.194,"consumer_conf":-0.05,"business_conf":-0.003,"covid_stringency":-0.629,"trend":3.608,"fitted":3.732,"actual":1.677,"residual":-2.056,"is_forecast":false},{"q":"2022-04","pmi":0.388,"trade":-0.002,"ip":-1.192,"oil":-0.145,"ai":0.013,"copper":0.026,"yield_curve":0.029,"usd":0.075,"vix":-0.066,"equity":0.387,"em_spread":0.073,"retail_sales":-0.154,"consumer_conf":-0.111,"business_conf":-0.002,"covid_stringency":-0.373,"trend":3.608,"fitted":2.551,"actual":0.775,"residual":-1.776,"is_forecast":false},{"q":"2022-07","pmi":-0.119,"trade":0.008,"ip":-0.174,"oil":-0.069,"ai":0.016,"copper":0.057,"yield_curve":0.047,"usd":0.11,"vix":-0.046,"equity":0.564,"em_spread":0.107,"retail_sales":-0.767,"consumer_conf":-0.138,"business_conf":-0.0,"covid_stringency":-0.269,"trend":3.608,"fitted":2.934,"actual":5.463,"residual":2.529,"is_forecast":false},{"q":"2022-10","pmi":-0.478,"trade":-0.059,"ip":-1.956,"oil":-0.002,"ai":0.02,"copper":0.057,"yield_curve":0.058,"usd":0.105,"vix":-0.048,"equity":0.656,"em_spread":0.083,"retail_sales":-0.807,"consumer_conf":-0.123,"business_conf":0.001,"covid_stringency":-0.188,"trend":3.608,"fitted":0.925,"actual":2.258,"residual":1.332,"is_forecast":false},{"q":"2023-01","pmi":0.303,"trade":-0.034,"ip":-1.145,"oil":0.07,"ai":0.013,"copper":0.043,"yield_curve":0.063,"usd":0.045,"vix":-0.012,"equity":0.503,"em_spread":0.018,"retail_sales":-0.011,"consumer_conf":-0.086,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":3.486,"actual":3.564,"residual":0.079,"is_forecast":false},{"q":"2023-04","pmi":0.759,"trade":-0.022,"ip":-1.457,"oil":0.108,"ai":-0.0,"copper":0.044,"yield_curve":0.062,"usd":-0.007,"vix":0.021,"equity":0.089,"em_spread":0.011,"retail_sales":-0.211,"consumer_conf":-0.057,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":3.057,"actual":3.058,"residual":0.001,"is_forecast":false},{"q":"2023-07","pmi":0.107,"trade":-0.011,"ip":-0.457,"oil":0.058,"ai":-0.009,"copper":0.007,"yield_curve":0.066,"usd":-0.052,"vix":0.033,"equity":-0.127,"em_spread":-0.066,"retail_sales":-0.323,"consumer_conf":-0.05,"business_conf":0.002,"covid_stringency":0.108,"trend":3.608,"fitted":2.892,"actual":4.317,"residual":1.425,"is_forecast":false},{"q":"2023-10","pmi":0.019,"trade":-0.001,"ip":-0.812,"oil":0.04,"ai":-0.011,"copper":0.019,"yield_curve":0.05,"usd":-0.048,"vix":0.032,"equity":-0.126,"em_spread":-0.049,"retail_sales":-0.55,"consumer_conf":-0.053,"business_conf":0.002,"covid_stringency":0.108,"trend":3.608,"fitted":2.227,"actual":2.45,"residual":0.223,"is_forecast":false},{"q":"2024-01","pmi":0.378,"trade":-0.01,"ip":-0.919,"oil":0.021,"ai":-0.015,"copper":0.034,"yield_curve":0.049,"usd":-0.008,"vix":0.044,"equity":-0.39,"em_spread":-0.045,"retail_sales":-0.386,"consumer_conf":-0.018,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":2.452,"actual":3.536,"residual":1.084,"is_forecast":false},{"q":"2024-04","pmi":0.611,"trade":0.008,"ip":-0.467,"oil":0.004,"ai":-0.015,"copper":-0.008,"yield_curve":0.051,"usd":0.024,"vix":0.042,"equity":-0.343,"em_spread":-0.068,"retail_sales":-0.221,"consumer_conf":-0.022,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":3.313,"actual":3.483,"residual":0.17,"is_forecast":false},{"q":"2024-07","pmi":0.477,"trade":0.009,"ip":-0.642,"oil":0.045,"ai":-0.011,"copper":0.003,"yield_curve":0.04,"usd":0.02,"vix":0.016,"equity":-0.432,"em_spread":0.003,"retail_sales":0.389,"consumer_conf":-0.025,"business_conf":0.002,"covid_stringency":0.108,"trend":3.608,"fitted":3.608,"actual":3.844,"residual":0.236,"is_forecast":false},{"q":"2024-10","pmi":0.477,"trade":-0.001,"ip":-0.525,"oil":0.056,"ai":-0.008,"copper":-0.002,"yield_curve":0.032,"usd":0.037,"vix":0.015,"equity":-0.531,"em_spread":-0.035,"retail_sales":0.15,"consumer_conf":-0.02,"business_conf":0.002,"covid_stringency":0.108,"trend":3.608,"fitted":3.361,"actual":3.722,"residual":0.36,"is_forecast":false},{"q":"2025-01","pmi":0.314,"trade":0.03,"ip":0.622,"oil":0.051,"ai":0.007,"copper":0.001,"yield_curve":0.025,"usd":0.067,"vix":0.005,"equity":-0.158,"em_spread":-0.012,"retail_sales":-0.162,"consumer_conf":-0.043,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":4.462,"actual":2.433,"residual":-2.029,"is_forecast":false},{"q":"2025-04","pmi":0.192,"trade":-0.016,"ip":-0.027,"oil":0.08,"ai":0.011,"copper":0.027,"yield_curve":0.018,"usd":-0.014,"vix":-0.036,"equity":-0.054,"em_spread":0.015,"retail_sales":0.006,"consumer_conf":-0.06,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":3.858,"actual":4.026,"residual":0.168,"is_forecast":false},{"q":"2025-07","pmi":0.526,"trade":0.015,"ip":-0.207,"oil":0.063,"ai":0.002,"copper":0.009,"yield_curve":0.016,"usd":-0.038,"vix":0.025,"equity":-0.132,"em_spread":-0.056,"retail_sales":0.145,"consumer_conf":-0.047,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":4.039,"actual":3.523,"residual":-0.516,"is_forecast":false},{"q":"2025-10","pmi":0.505,"trade":-0.002,"ip":-0.68,"oil":0.066,"ai":-0.012,"copper":-0.02,"yield_curve":0.015,"usd":-0.065,"vix":0.011,"equity":-0.171,"em_spread":-0.041,"retail_sales":-0.265,"consumer_conf":-0.049,"business_conf":0.001,"covid_stringency":0.108,"trend":3.608,"fitted":3.007,"actual":3.326,"residual":0.319,"is_forecast":false},{"q":"2026-01","pmi":0.44,"trade":0.072,"ip":0.147,"oil":0.008,"ai":-0.02,"copper":-0.053,"yield_curve":0.013,"usd":-0.103,"vix":-0.01,"equity":-0.145,"em_spread":-0.046,"retail_sales":0.326,"consumer_conf":-0.054,"business_conf":0.0,"covid_stringency":0.108,"trend":3.608,"fitted":4.291,"actual":3.031,"residual":-1.26,"is_forecast":false},{"q":"2026-04","pmi":0.35,"trade":-0.047,"ip":-0.472,"oil":-0.12,"ai":-0.031,"copper":-0.058,"yield_curve":0.019,"usd":-0.045,"vix":0.006,"equity":-0.419,"em_spread":-0.069,"retail_sales":0.604,"consumer_conf":-0.085,"business_conf":0.0,"covid_stringency":0.108,"trend":3.608,"fitted":3.349,"actual":null,"residual":null,"is_forecast":true},{"q":"2026-07","pmi":0.511,"trade":-0.051,"ip":-0.653,"oil":-0.02,"ai":-0.027,"copper":-0.055,"yield_curve":0.022,"usd":-0.006,"vix":0.016,"equity":-0.226,"em_spread":-0.061,"retail_sales":0.864,"consumer_conf":-0.086,"business_conf":0.0,"covid_stringency":0.108,"trend":3.608,"fitted":3.944,"actual":null,"residual":null,"is_forecast":true},{"q":"2026-10","pmi":0.383,"trade":-0.008,"ip":-0.06,"oil":-0.015,"ai":-0.022,"copper":-0.042,"yield_curve":0.021,"usd":-0.005,"vix":0.011,"equity":-0.179,"em_spread":-0.044,"retail_sales":-0.09,"consumer_conf":-0.078,"business_conf":0.0,"covid_stringency":0.098,"trend":3.608,"fitted":3.579,"actual":null,"residual":null,"is_forecast":true},{"q":"2027-01","pmi":0.286,"trade":-0.001,"ip":-0.005,"oil":-0.011,"ai":-0.017,"copper":-0.033,"yield_curve":0.021,"usd":-0.004,"vix":0.008,"equity":-0.141,"em_spread":-0.032,"retail_sales":0.009,"consumer_conf":-0.072,"business_conf":0.0,"covid_stringency":0.089,"trend":3.608,"fitted":3.705,"actual":null,"residual":null,"is_forecast":true}];
+const CATEGORIES = [{"name":"Core Activity","members":["pmi","trade","ip","retail_sales","consumer_conf","business_conf"],"slot":"cat-1"},{"name":"Financial Conditions","members":["vix","yield_curve","usd","equity","em_spread"],"slot":"cat-2"},{"name":"Commodities & Tech","members":["oil","copper","ai"],"slot":"cat-3"},{"name":"COVID Stringency","members":["covid_stringency"],"slot":"cat-4"}];
+const TREND = 3.608;
 </script>
 
 <script>
